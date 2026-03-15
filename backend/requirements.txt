@@ -1,0 +1,11 @@
+sanic==23.12.1
+sanic-cors==2.2.0
+asyncpg==0.29.0
+alembic==1.13.1
+sqlalchemy==2.0.25
+Pillow==10.2.0
+python-barcode==0.15.1
+brother_ql==0.9.2
+bcrypt==4.1.2
+python-dotenv==1.0.1
+psycopg2-binary==2.9.9
