@@ -163,8 +163,7 @@ export default function Settings() {
 
   const [regenerating, setRegenerating] = useState(false);
   const printerReady = agentRunning && !!selectedPrinter;
-  const wsUrl = window.location.origin.replace(/^http/, "ws");
-  const agentCmd = `python print_agent.py --url ${wsUrl} --token ${agentToken || "…"}`;
+  const agentCmd = `python print_agent.py --url ${window.location.origin} --token ${agentToken || "…"}`;
 
   async function handleRegenerateToken() {
     if (!confirm("This will disconnect the current agent. You'll need to restart it with the new token. Continue?")) return;
@@ -298,7 +297,7 @@ export default function Settings() {
             <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.875rem" }}>Run silently in the background (no window)</div>
             <p className="text-xs text-muted" style={{ marginBottom: 10 }}>Install as a Windows service with NSSM so it starts automatically and runs silently:</p>
             <code style={{ display: "block", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.8rem", fontFamily: "monospace", whiteSpace: "pre", overflowX: "auto" }}>
-              {`nssm install LabelFlowAgent "C:\\Python311\\pythonw.exe"\nnssm set LabelFlowAgent AppParameters "C:\\path\\to\\print_agent.py --url ${wsUrl} --token ${agentToken || "…"}"\nnssm set LabelFlowAgent AppDirectory "C:\\path\\to\\agent\\folder"\nnssm start LabelFlowAgent`}
+              {`nssm install LabelFlowAgent "C:\\Python311\\pythonw.exe"\nnssm set LabelFlowAgent AppParameters "C:\\path\\to\\print_agent.py --url ${window.location.origin} --token ${agentToken || "…"}"\nnssm set LabelFlowAgent AppDirectory "C:\\path\\to\\agent\\folder"\nnssm start LabelFlowAgent`}
             </code>
             <p className="text-xs text-muted" style={{ marginTop: 8 }}>
               Logs are written to <code>print_agent.log</code> next to the script.
