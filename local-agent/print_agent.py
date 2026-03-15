@@ -80,7 +80,7 @@ async def run(server_url: str, token: str):
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
 
-    async with websockets.connect(ws_url, ping_interval=30, ping_timeout=10, ssl=ssl_ctx) as ws:
+    async with websockets.connect(ws_url, ping_interval=None, ssl=ssl_ctx) as ws:
         log("Connected. Waiting for print jobs.")
 
         async for message in ws:
