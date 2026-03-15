@@ -102,6 +102,10 @@ export const api = {
   createUser: (data) => request("POST", "/api/settings/users", data),
   listUsers: () => request("GET", "/api/settings/users"),
   revokeSessions: () => request("POST", "/api/settings/revoke-sessions"),
+
+  // Agent
+  agentStatus: () => request("GET", "/api/agent/status"),
+  listPrinters: () => request("GET", "/api/printers"),
 };
 
 export { getToken };

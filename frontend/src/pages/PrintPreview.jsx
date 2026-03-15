@@ -4,15 +4,11 @@ import { api } from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import {
   printBytes,
-  getPrinterMode,
-  getPrinterIp,
-  usbGetOrRequestDevice,
-  useUsbConnected,
+  getSelectedPrinter,
 } from "../printer.js";
 
 // Re-export for legacy imports (Dashboard)
-export { usbGetOrRequestDevice as getOrRequestDevice, printBytes as sendBytesToPrinter };
-export { useUsbConnected as useDeviceConnected };
+export { printBytes as sendBytesToPrinter };
 
 const LABEL_TYPES = [
   { value: 1, label: "Shelf Label",   desc: "Name · weight · price · barcode" },
@@ -25,9 +21,7 @@ export default function PrintPreview() {
   const [searchParams] = useSearchParams();
   const toast = useToast();
 
-  const mode = getPrinterMode();
-  const usbConnected = useUsbConnected();
-  const printerReady = mode === "network" ? !!getPrinterIp() : usbConnected;
+  const printerReady = !!getSelectedPrinter();
 
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -59,16 +53,6 @@ export default function PrintPreview() {
         if (v) { setSelectedProduct(prod); setSelectedVariant(v); return; }
       }
     } catch {}
-  }
-
-  async function handleConnect() {
-    try {
-      await usbGetOrRequestDevice();
-      toast.success("Printer connected via USB");
-    } catch (err) {
-      if (err.name === "NotFoundError") return;
-      toast.error(err.message, err.name === "ClaimError" ? 8000 : 4000);
-    }
   }
 
   async function handlePrint() {
@@ -107,13 +91,7 @@ export default function PrintPreview() {
       if (jobId) await api.confirmPrint(jobId);
       toast.success(`Done — ${quantity > 1 ? `${quantity} labels` : "label"} printed!`);
     } catch (err) {
-      if (err.name === "NotFoundError" || err.message?.includes("No device selected")) {
-        toast.error("Printer not connected — use the Connect button above");
-      } else if (err.name === "ClaimError") {
-        toast.error(err.message, 8000);
-      } else {
-        toast.error(`Print failed: ${err.message}`, 6000);
-      }
+      toast.error(`Print failed: ${err.message}`, 6000);
     } finally {
       setPrinting(false);
     }
@@ -138,29 +116,17 @@ export default function PrintPreview() {
         </div>
 
         {/* Printer status */}
-        {mode === "usb" ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="status-dot" style={{ width: 10, height: 10, background: usbConnected ? "var(--success)" : "var(--text-muted)" }} />
-            <span className="text-sm" style={{ color: usbConnected ? "var(--success)" : "var(--text-muted)", fontWeight: 600 }}>
-              {usbConnected ? "Printer ready" : "Not connected"}
-            </span>
-            <button className="btn btn-ghost btn-sm" onClick={handleConnect}>
-              {usbConnected ? "Reconnect" : "Connect USB"}
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="status-dot" style={{ width: 10, height: 10, background: getPrinterIp() ? "var(--success)" : "var(--text-muted)" }} />
-            <span className="text-sm" style={{ color: getPrinterIp() ? "var(--success)" : "var(--text-muted)", fontWeight: 600 }}>
-              {getPrinterIp() ? `Network: ${getPrinterIp()}` : "No printer IP set"}
-            </span>
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="status-dot" style={{ width: 10, height: 10, background: printerReady ? "var(--success)" : "var(--text-muted)" }} />
+          <span className="text-sm" style={{ color: printerReady ? "var(--success)" : "var(--text-muted)", fontWeight: 600 }}>
+            {printerReady ? getSelectedPrinter() : "No printer selected"}
+          </span>
+        </div>
       </div>
 
-      {!navigator.usb && mode === "usb" && (
+      {!printerReady && (
         <div style={{ background: "var(--warning-bg)", border: "1px solid #f5d5a8", color: "var(--warning)", borderRadius: "var(--radius-sm)", padding: "12px 16px", marginBottom: 20, fontSize: "0.875rem", fontWeight: 500 }}>
-          WebUSB requires Chrome or Edge. Or switch to Network mode in Settings.
+          No printer selected — go to <a href="/settings" style={{ color: "var(--accent)" }}>Settings</a> to set one up.
         </div>
       )}
 

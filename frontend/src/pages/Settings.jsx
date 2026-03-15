@@ -2,24 +2,21 @@ import React, { useState, useEffect } from "react";
 import { api } from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import {
-  getPrinterMode, setPrinterMode,
-  getPrinterIp, setPrinterIp,
-  checkAgentRunning,
-  usbGetOrRequestDevice,
+  getSelectedPrinter, setSelectedPrinter,
+  checkAgentRunning, listPrinters,
   printBytes,
-  useUsbConnected,
-  AGENT_PORT,
 } from "../printer.js";
 
 export default function Settings() {
   const toast = useToast();
-  const usbConnected = useUsbConnected();
 
   // Printer settings
-  const [mode, setMode] = useState(getPrinterMode);
-  const [printerIp, setPrinterIpState] = useState(getPrinterIp);
   const [agentRunning, setAgentRunning] = useState(false);
+  const [agentToken, setAgentToken] = useState("");
   const [checkingAgent, setCheckingAgent] = useState(false);
+  const [printers, setPrinters] = useState([]);
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
+  const [selectedPrinter, setSelectedPrinterState] = useState(getSelectedPrinter);
   const [testPrinting, setTestPrinting] = useState(false);
 
   // Tags, users, etc.
@@ -34,12 +31,7 @@ export default function Settings() {
 
   const webhookUrl = `${window.location.origin}/api/webhooks/woocommerce`;
 
-  useEffect(() => { loadAll(); }, []);
-
-  // Check agent status whenever mode or IP changes
-  useEffect(() => {
-    if (mode === "network") handleCheckAgent();
-  }, [mode, printerIp]);
+  useEffect(() => { loadAll(); handleCheckAgent(); }, []);
 
   async function loadAll() {
     try {
@@ -49,30 +41,40 @@ export default function Settings() {
     } catch {}
   }
 
-  function handleModeChange(newMode) {
-    setMode(newMode);
-    setPrinterMode(newMode);
-  }
-
-  function handleIpChange(ip) {
-    setPrinterIpState(ip);
-    setPrinterIp(ip);
-  }
-
   async function handleCheckAgent() {
     setCheckingAgent(true);
-    setAgentRunning(await checkAgentRunning());
+    try {
+      const res = await api.agentStatus();
+      setAgentRunning(res.connected === true);
+      if (res.token) setAgentToken(res.token);
+    } catch {
+      setAgentRunning(false);
+    }
     setCheckingAgent(false);
   }
 
-  async function handleConnectUsb() {
+  async function handleLoadPrinters() {
+    setLoadingPrinters(true);
     try {
-      await usbGetOrRequestDevice();
-      toast.success("Printer connected via USB");
+      const list = await listPrinters();
+      setPrinters(list);
+      if (list.length && !list.includes(selectedPrinter)) {
+        // Auto-select first Brother printer, or first in list
+        const brother = list.find((p) => p.toLowerCase().includes("brother"));
+        const pick = brother || list[0];
+        setSelectedPrinterState(pick);
+        setSelectedPrinter(pick);
+      }
     } catch (err) {
-      if (err.name === "NotFoundError") return;
-      toast.error(err.message, err.name === "ClaimError" ? 8000 : 4000);
+      toast.error(`Could not load printers: ${err.message}`, 5000);
+    } finally {
+      setLoadingPrinters(false);
     }
+  }
+
+  function handlePrinterSelect(name) {
+    setSelectedPrinterState(name);
+    setSelectedPrinter(name);
   }
 
   async function handleTestPrint() {
@@ -90,7 +92,7 @@ export default function Settings() {
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const jobId = res.headers.get("X-Job-Id");
       const bytes = new Uint8Array(await res.arrayBuffer());
-      await printBytes(bytes);
+      await printBytes(bytes, selectedPrinter);
       if (jobId) await api.confirmPrint(jobId);
       toast.success("Test label printed!");
     } catch (err) {
@@ -159,9 +161,7 @@ export default function Settings() {
     } catch (err) { toast.error(err.message); setRevokingAll(false); }
   }
 
-  const networkReady = mode === "network" && printerIp && agentRunning;
-  const usbReady = mode === "usb" && usbConnected;
-  const printerReady = networkReady || usbReady;
+  const printerReady = agentRunning && !!selectedPrinter;
 
   return (
     <div className="page">
@@ -171,113 +171,95 @@ export default function Settings() {
 
       {/* ── Printer ── */}
       <div className="card section">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-          <h2>Printer</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className={`btn btn-sm ${mode === "usb" ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => handleModeChange("usb")}
-            >
-              USB
-            </button>
-            <button
-              className={`btn btn-sm ${mode === "network" ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => handleModeChange("network")}
-            >
-              Network
-            </button>
+        <h2 style={{ marginBottom: 20 }}>Printer</h2>
+
+        {/* Agent status row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+          <span className="status-dot" style={{ width: 12, height: 12, flexShrink: 0, background: agentRunning ? "var(--success)" : "var(--text-muted)" }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600 }}>{agentRunning ? "Print agent running" : "Print agent not detected"}</div>
+            <div className="text-xs text-muted">ws://localhost:{AGENT_PORT}</div>
           </div>
+          <button className="btn btn-ghost btn-sm" onClick={handleCheckAgent} disabled={checkingAgent}>
+            {checkingAgent ? <span className="spinner dark" style={{ width: 14, height: 14 }} /> : "Refresh"}
+          </button>
         </div>
 
-        {mode === "usb" ? (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <span className="status-dot" style={{ width: 12, height: 12, background: usbConnected ? "var(--success)" : "var(--text-muted)" }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{usbConnected ? "Brother QL-820NWB connected" : "No printer connected"}</div>
-                <div className="text-sm text-muted">{navigator.usb ? "WebUSB supported (Chrome / Edge)" : "WebUSB not supported — use Chrome or Edge"}</div>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-ghost btn-sm" onClick={handleConnectUsb}>
-                  {usbConnected ? "Reconnect" : "Connect Printer"}
-                </button>
-                <button className="btn btn-primary btn-sm" onClick={handleTestPrint} disabled={testPrinting || !usbConnected}>
-                  {testPrinting ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Printing…</> : "Test Print"}
-                </button>
-              </div>
-            </div>
-            <div style={{ marginTop: 14, padding: "12px 16px", background: "var(--warning-bg)", border: "1px solid #f5d5a8", borderRadius: "var(--radius-sm)", fontSize: "0.875rem", color: "var(--warning)" }}>
-              <strong>Windows USB not working?</strong> Switch to <strong>Network mode</strong> — it's easier and keeps P-touch Editor working.
-            </div>
+        {/* Printer selector */}
+        <div className="form-group" style={{ marginBottom: 20 }}>
+          <label>Printer</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <select
+              value={selectedPrinter}
+              onChange={(e) => handlePrinterSelect(e.target.value)}
+              style={{ flex: 1 }}
+              disabled={!agentRunning || printers.length === 0}
+            >
+              {printers.length === 0 ? (
+                <option value="">— click Load Printers —</option>
+              ) : (
+                <>
+                  <option value="">Select a printer…</option>
+                  {printers.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </>
+              )}
+            </select>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleLoadPrinters}
+              disabled={!agentRunning || loadingPrinters}
+            >
+              {loadingPrinters ? <span className="spinner dark" style={{ width: 14, height: 14 }} /> : "Load Printers"}
+            </button>
           </div>
-        ) : (
-          <div>
-            {/* Network mode */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <p className="text-xs text-muted">Lists all printers installed on your local computer.</p>
+        </div>
 
-              {/* Printer IP */}
-              <div className="form-group">
-                <label>Printer IP Address</label>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <input
-                    type="text"
-                    placeholder="e.g. 192.168.1.100"
-                    value={printerIp}
-                    onChange={(e) => handleIpChange(e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <button className="btn btn-ghost btn-sm" onClick={handleCheckAgent} disabled={checkingAgent || !printerIp}>
-                    {checkingAgent ? <span className="spinner dark" style={{ width: 14, height: 14 }} /> : "Check"}
-                  </button>
-                </div>
-                <p className="text-xs text-muted">Find this in the printer's LCD menu or your router's device list.</p>
-              </div>
+        {/* Test print */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 24, flexWrap: "wrap" }}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleTestPrint}
+            disabled={testPrinting || !printerReady || !selectedPrinter}
+            title={!agentRunning ? "Start the print agent first" : !selectedPrinter ? "Select a printer first" : ""}
+          >
+            {testPrinting ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Printing…</> : "Test Print"}
+          </button>
+          {selectedPrinter && <span className="text-sm text-muted">→ {selectedPrinter}</span>}
+        </div>
 
-              {/* Agent status */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                  <span className="status-dot" style={{ width: 12, height: 12, background: agentRunning ? "var(--success)" : "var(--text-muted)" }} />
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{agentRunning ? "Print agent running" : "Print agent not detected"}</div>
-                    <div className="text-xs text-muted">Listening on ws://localhost:{AGENT_PORT}</div>
-                  </div>
-                </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleTestPrint}
-                  disabled={testPrinting || !networkReady}
-                  title={!printerIp ? "Set printer IP first" : !agentRunning ? "Start the print agent first" : ""}
-                >
-                  {testPrinting ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Printing…</> : "Test Print"}
-                </button>
-              </div>
-
-              {/* Setup instructions */}
-              <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "16px 20px" }}>
-                <div style={{ fontWeight: 700, marginBottom: 10, fontSize: "0.9375rem" }}>Setup (one time)</div>
-                <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                  <li>
-                    <a href="/print_agent.py" download style={{ color: "var(--accent)", fontWeight: 600 }}>
-                      Download print_agent.py
-                    </a>
-                    {" "}— save it anywhere on this computer
-                  </li>
-                  <li>
-                    Open a terminal and run:
-                    <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px", marginTop: 6, fontSize: "0.8125rem", fontFamily: "monospace" }}>
-                      pip install websockets{"\n"}python print_agent.py
-                    </code>
-                  </li>
-                  <li>Enter your printer's IP above and click <strong>Check</strong></li>
-                  <li>Click <strong>Test Print</strong> to verify</li>
-                </ol>
-                <p className="text-xs text-muted" style={{ marginTop: 12 }}>
-                  Leave the agent terminal open while using LabelFlow. P-touch Editor continues to work normally — the agent uses the network port, not USB.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Setup instructions */}
+        <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "16px 20px" }}>
+          <div style={{ fontWeight: 700, marginBottom: 10, fontSize: "0.9375rem" }}>Setup (one time, on your Windows PC)</div>
+          <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+            <li>
+              <a href="/print_agent.py" download style={{ color: "var(--accent)", fontWeight: 600 }}>
+                Download print_agent.py
+              </a>
+              {" "}— save it anywhere on your Windows machine
+            </li>
+            <li>
+              Install dependencies:
+              <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px", marginTop: 6, fontSize: "0.8125rem", fontFamily: "monospace" }}>
+                pip install websockets pywin32
+              </code>
+            </li>
+            <li>
+              Run the agent (connects to this server):
+              <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px", marginTop: 6, fontSize: "0.8125rem", fontFamily: "monospace", whiteSpace: "pre" }}>
+                {`python print_agent.py --url ${window.location.origin.replace("http", "ws")} --token ${agentToken || "YOUR_AGENT_TOKEN"}`}
+              </code>
+            </li>
+            <li>Click <strong>Refresh</strong> above — the dot should turn green</li>
+            <li>Click <strong>Load Printers</strong>, select your Brother printer, then <strong>Test Print</strong></li>
+          </ol>
+          <p className="text-xs text-muted" style={{ marginTop: 12 }}>
+            The agent connects outbound to this server — print from any device, any network, even mobile data.
+            To run it silently in the background, install it as a Windows service with NSSM using <code>pythonw.exe</code> — see the README.
+          </p>
+        </div>
       </div>
 
       {/* ── WooCommerce ── */}

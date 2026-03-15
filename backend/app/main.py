@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+import uuid
 import logging
 import subprocess
 import asyncio
@@ -26,6 +28,7 @@ CORS(app, origins="*", automatic_options=True)
 EXCLUDED_AUTH_PATHS = [
     "/api/auth/login",
     "/api/webhooks/",
+    "/api/ws/",
 ]
 
 app.blueprint(auth_bp)
@@ -44,6 +47,9 @@ async def check_auth(request):
 
 @app.listener("before_server_start")
 async def setup(app, loop):
+    app.ctx.agent_ws = None
+    app.ctx.agent_jobs = {}
+
     logger.info("Running database migrations...")
     run_migrations()
 
@@ -54,6 +60,101 @@ async def setup(app, loop):
     await ensure_admin_user()
 
     logger.info("Server ready.")
+
+
+# ── Print agent WebSocket (agent connects here) ───────────────────────────────
+
+@app.websocket("/api/ws/agent")
+async def agent_ws_handler(request, ws):
+    token = request.args.get("token", "")
+    if token != config.AGENT_TOKEN:
+        await ws.close(4001, "Unauthorized")
+        return
+
+    logger.info("Print agent connected from %s", request.ip)
+    app.ctx.agent_ws = ws
+    try:
+        async for msg in ws:
+            if not isinstance(msg, str):
+                continue
+            try:
+                data = json.loads(msg)
+            except Exception:
+                continue
+            job_id = data.get("job_id")
+            if job_id and job_id in app.ctx.agent_jobs:
+                fut = app.ctx.agent_jobs[job_id]
+                if not fut.done():
+                    fut.set_result(data)
+    except Exception:
+        pass
+    finally:
+        logger.info("Print agent disconnected")
+        app.ctx.agent_ws = None
+
+
+# ── Agent status ──────────────────────────────────────────────────────────────
+
+@app.get("/api/agent/status")
+async def agent_status(request):
+    return sanic_json({
+        "connected": app.ctx.agent_ws is not None,
+        "token": config.AGENT_TOKEN,
+    })
+
+
+# ── Printer list ──────────────────────────────────────────────────────────────
+
+@app.get("/api/printers")
+async def get_printers(request):
+    ws = app.ctx.agent_ws
+    if not ws:
+        return sanic_json({"error": "No print agent connected"}, status=503)
+    job_id = str(uuid.uuid4())
+    fut = asyncio.get_event_loop().create_future()
+    app.ctx.agent_jobs[job_id] = fut
+    try:
+        await ws.send(json.dumps({"cmd": "list_printers", "job_id": job_id}))
+        result = await asyncio.wait_for(fut, timeout=5.0)
+        return sanic_json({"printers": result.get("printers", [])})
+    except asyncio.TimeoutError:
+        return sanic_json({"error": "Agent timed out"}, status=504)
+    except Exception as exc:
+        return sanic_json({"error": str(exc)}, status=500)
+    finally:
+        app.ctx.agent_jobs.pop(job_id, None)
+
+
+# ── Dispatch print job via agent ──────────────────────────────────────────────
+
+@app.post("/api/print/dispatch")
+async def dispatch_print(request):
+    ws = app.ctx.agent_ws
+    if not ws:
+        return sanic_json({"error": "No print agent connected. Is the agent running?"}, status=503)
+    printer_name = request.headers.get("X-Printer-Name", "").strip()
+    if not printer_name:
+        return sanic_json({"error": "X-Printer-Name header required"}, status=400)
+    raster_bytes = request.body
+    if not raster_bytes:
+        return sanic_json({"error": "No print data in request body"}, status=400)
+
+    job_id = str(uuid.uuid4())
+    fut = asyncio.get_event_loop().create_future()
+    app.ctx.agent_jobs[job_id] = fut
+    try:
+        await ws.send(json.dumps({"cmd": "print", "printer": printer_name, "job_id": job_id}))
+        await ws.send(raster_bytes)
+        result = await asyncio.wait_for(fut, timeout=20.0)
+        if result.get("status") == "ok":
+            return sanic_json({"status": "ok"})
+        return sanic_json({"error": result.get("error", "Print failed")}, status=500)
+    except asyncio.TimeoutError:
+        return sanic_json({"error": "Print timed out"}, status=504)
+    except Exception as exc:
+        return sanic_json({"error": str(exc)}, status=500)
+    finally:
+        app.ctx.agent_jobs.pop(job_id, None)
 
 
 @app.listener("after_server_stop")
