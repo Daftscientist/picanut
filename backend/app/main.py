@@ -30,7 +30,8 @@ CORS(app, origins="*", automatic_options=True)
 EXCLUDED_AUTH_PATHS = [
     "/api/auth/login",
     "/api/webhooks/",
-    "/api/agent/",
+    "/api/agent/poll",
+    "/api/agent/result",
 ]
 
 app.blueprint(auth_bp)
