@@ -1,5 +1,5 @@
 /**
- * Printer module — all calls go through the LabelFlow server,
+ * Printer module — all calls go through the Canopy server,
  * which relays to the print agent running on the local Windows PC.
  */
 
@@ -12,19 +12,20 @@ export function setSelectedPrinter(name) {
   localStorage.setItem("lf_printer_name", name);
 }
 
-/** Check whether the print agent is connected to the server. */
+/** Check whether any print agent is connected to the server. */
 export async function checkAgentRunning() {
   try {
-    const res = await api.get("/api/agent/status");
-    return res.connected === true;
+    const res = await api.agentStatus();
+    const agents = res.agents || [];
+    return agents.some((a) => a.connected === true);
   } catch {
     return false;
   }
 }
 
 /** Fetch the list of installed printers from the agent via the server. */
-export async function listPrinters() {
-  const res = await api.get("/api/printers");
+export async function listPrinters(agentId) {
+  const res = await api.listPrinters(agentId);
   return res.printers || [];
 }
 
@@ -32,19 +33,23 @@ export async function listPrinters() {
  * Send raster bytes to the printer via the server → agent → USB.
  * @param {Uint8Array} bytes  - raster data from /api/print/render
  * @param {string} [printerName] - Windows printer name; falls back to saved preference
+ * @param {string} [agentId] - specific agent to use; falls back to org default
  */
-export async function printBytes(bytes, printerName) {
+export async function printBytes(bytes, printerName, agentId) {
   const name = printerName || getSelectedPrinter();
-  if (!name) throw new Error("No printer selected — choose one in Settings → Printer");
+  if (!name) throw new Error("No printer selected — choose one in Agents settings");
 
   const token = localStorage.getItem("lf_token");
+  const headers = {
+    "Content-Type": "application/octet-stream",
+    "X-Printer-Name": name,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(agentId ? { "X-Agent-Id": agentId } : {}),
+  };
+
   const res = await fetch("/api/print/dispatch", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/octet-stream",
-      "X-Printer-Name": name,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers,
     body: bytes,
   });
 

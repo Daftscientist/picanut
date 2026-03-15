@@ -1,5 +1,6 @@
 import json as json_module
 import logging
+from datetime import date
 from sanic import Blueprint
 from sanic.response import json as sanic_json, HTTPResponse
 from ..db import get_pool
@@ -7,11 +8,12 @@ from ..labels.renderer import render_label
 from ..labels.printer import image_to_raster_bytes
 
 print_jobs_bp = Blueprint("print_jobs", url_prefix="/api/print")
-logger = logging.getLogger("labelflow.print_jobs")
+logger = logging.getLogger("canopy.print_jobs")
 
 
 @print_jobs_bp.route("/render", methods=["POST"])
 async def render(request):
+    org_id = request.ctx.user.get("org_id")
     user_id = request.ctx.user["user_id"]
     data = request.json or {}
     variant_id = data.get("variant_id")
@@ -29,8 +31,8 @@ async def render(request):
                           p.description, p.brand
                    FROM product_variants pv
                    JOIN products p ON p.id = pv.product_id
-                   WHERE pv.id = $1 AND p.owner_id = $2""",
-                variant_id, user_id,
+                   WHERE pv.id = $1 AND p.org_id = $2""",
+                variant_id, org_id,
             )
         if not variant:
             return sanic_json({"error": "Variant not found"}, status=404)
@@ -52,6 +54,21 @@ async def render(request):
         params["info_title"] = data.get("info_title", params.get("product_name", ""))
         params["info_body"] = data.get("info_body", params.get("description", ""))
 
+    # Check print quota before rendering
+    async with pool.acquire() as conn:
+        plan = await conn.fetchrow(
+            """SELECT p.print_quota FROM plans p
+               JOIN organizations o ON o.plan_id=p.id WHERE o.id=$1""",
+            org_id,
+        )
+        month_start = date.today().replace(day=1)
+        quota_used = await conn.fetchval(
+            "SELECT COALESCE(SUM(count),0) FROM print_quota_usage WHERE org_id=$1 AND month=$2",
+            org_id, month_start,
+        )
+    if plan and quota_used >= plan["print_quota"] * 1.1:
+        return sanic_json({"error": "Monthly print quota exceeded. Upgrade your plan.", "limit_hit": True}, status=402)
+
     try:
         image = render_label(label_type, params)
         raster_bytes = image_to_raster_bytes(image)
@@ -63,11 +80,17 @@ async def render(request):
     async with pool.acquire() as conn:
         extra = {k: v for k, v in data.items() if k not in ("variant_id", "label_type", "quantity")}
         job_id = await conn.fetchval(
-            """INSERT INTO print_jobs (type, variant_id, label_type, quantity, status, owner_id, extra_json)
-               VALUES ('manual', $1, $2, $3, 'queued', $4, $5::jsonb)
+            """INSERT INTO print_jobs (type, variant_id, label_type, quantity, status, owner_id, org_id, extra_json)
+               VALUES ('manual', $1, $2, $3, 'queued', $4, $5, $6::jsonb)
                RETURNING id""",
-            variant_id, label_type, quantity, user_id,
+            variant_id, label_type, quantity, user_id, org_id,
             json_module.dumps(extra) if extra else None,
+        )
+        # Increment quota usage
+        await conn.execute(
+            """INSERT INTO print_quota_usage (org_id, month, count) VALUES ($1, $2, $3)
+               ON CONFLICT (org_id, month) DO UPDATE SET count = print_quota_usage.count + $3""",
+            org_id, month_start, quantity,
         )
 
     return HTTPResponse(
@@ -80,15 +103,15 @@ async def render(request):
 
 @print_jobs_bp.route("/<job_id>/confirm", methods=["POST"])
 async def confirm(request, job_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """UPDATE print_jobs
                SET status='printed', printed_at=NOW()
-               WHERE id=$1 AND owner_id=$2
+               WHERE id=$1 AND org_id=$2
                RETURNING id, status, woo_order_id""",
-            job_id, user_id,
+            job_id, org_id,
         )
     if not row:
         return sanic_json({"error": "Job not found"}, status=404)
@@ -111,7 +134,7 @@ async def confirm(request, job_id):
 
 @print_jobs_bp.route("/jobs", methods=["GET"])
 async def list_jobs(request):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     limit = int(request.args.get("limit", 10))
     status = request.args.get("status", "")
     pool = get_pool()
@@ -124,9 +147,9 @@ async def list_jobs(request):
                    FROM print_jobs pj
                    LEFT JOIN product_variants pv ON pv.id = pj.variant_id
                    LEFT JOIN products p ON p.id = pv.product_id
-                   WHERE pj.owner_id = $1 AND pj.status = $2
+                   WHERE pj.org_id = $1 AND pj.status = $2
                    ORDER BY pj.created_at DESC LIMIT $3""",
-                user_id, status, limit,
+                org_id, status, limit,
             )
         else:
             rows = await conn.fetch(
@@ -136,9 +159,9 @@ async def list_jobs(request):
                    FROM print_jobs pj
                    LEFT JOIN product_variants pv ON pv.id = pj.variant_id
                    LEFT JOIN products p ON p.id = pv.product_id
-                   WHERE pj.owner_id = $1
+                   WHERE pj.org_id = $1
                    ORDER BY pj.created_at DESC LIMIT $2""",
-                user_id, limit,
+                org_id, limit,
             )
     result = []
     for r in rows:
@@ -151,15 +174,15 @@ async def list_jobs(request):
 
 @print_jobs_bp.route("/orders/pending", methods=["GET"])
 async def pending_orders(request):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
         orders = await conn.fetch(
             """SELECT wo.id, wo.woo_order_id, wo.raw_json, wo.imported_at, wo.status
                FROM woo_orders wo
-               WHERE wo.owner_id = $1 AND wo.status = 'pending'
+               WHERE wo.org_id = $1 AND wo.status = 'pending'
                ORDER BY wo.imported_at DESC""",
-            user_id,
+            org_id,
         )
         result = []
         for o in orders:
@@ -187,12 +210,12 @@ async def pending_orders(request):
 
 @print_jobs_bp.route("/orders/<order_id>/print-all", methods=["POST"])
 async def print_all_for_order(request, order_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
-        # Verify order ownership
+        # Verify order belongs to org
         owned = await conn.fetchval(
-            "SELECT id FROM woo_orders WHERE id=$1 AND owner_id=$2", order_id, user_id
+            "SELECT id FROM woo_orders WHERE id=$1 AND org_id=$2", order_id, org_id
         )
         if not owned:
             return sanic_json({"error": "Order not found"}, status=404)

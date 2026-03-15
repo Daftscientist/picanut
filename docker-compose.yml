@@ -9,6 +9,9 @@ services:
       - DATABASE_URL=postgresql://labelflow:labelflow@db:5432/labelflow
       - WOO_WEBHOOK_SECRET=${WOO_WEBHOOK_SECRET:-changeme}
       - SECRET_KEY=${SECRET_KEY:-changeme-secret-key}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
     depends_on:
       db:
         condition: service_healthy

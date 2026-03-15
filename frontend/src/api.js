@@ -31,6 +31,7 @@ async function request(method, path, body, options = {}) {
 
   if (res.status === 401) {
     localStorage.removeItem("lf_token");
+    localStorage.removeItem("lf_username");
     window.location.href = "/login";
     throw new Error("Unauthorised");
   }
@@ -64,6 +65,7 @@ export const api = {
     request("POST", "/api/auth/login", { username, password }),
   logout: () => request("POST", "/api/auth/logout"),
   me: () => request("GET", "/api/auth/me"),
+  signup: (data) => request("POST", "/api/auth/signup", data),
 
   // Products
   getProducts: (params = {}) => {
@@ -98,17 +100,43 @@ export const api = {
   printAllForOrder: (orderId) =>
     request("POST", `/api/print/orders/${orderId}/print-all`, {}, { raw: true }),
 
+  // Agents (new)
+  listAgents: () => request("GET", "/api/agents"),
+  createAgent: (data) => request("POST", "/api/agents", data),
+  getAgent: (id) => request("GET", `/api/agents/${id}`),
+  updateAgent: (id, data) => request("PUT", `/api/agents/${id}`, data),
+  deleteAgent: (id) => request("DELETE", `/api/agents/${id}`),
+  regenerateAgentToken: (id) => request("POST", `/api/agents/${id}/regenerate-token`),
+  setDefaultAgent: (id) => request("POST", `/api/agents/${id}/set-default`),
+  setAgentAccess: (agentId, data) => request("PUT", `/api/agents/${agentId}/access`, data),
+
+  // Billing (new)
+  listPlans: () => request("GET", "/api/billing/plans"),
+  billingStatus: () => request("GET", "/api/billing/status"),
+  createCheckout: (planId) => request("POST", "/api/billing/checkout", { plan_id: planId }),
+  openPortal: () => request("POST", "/api/billing/portal"),
+
+  // Admin (new)
+  adminListPlans: () => request("GET", "/api/admin/plans"),
+  adminCreatePlan: (data) => request("POST", "/api/admin/plans", data),
+  adminUpdatePlan: (id, data) => request("PUT", `/api/admin/plans/${id}`, data),
+  adminDeletePlan: (id) => request("DELETE", `/api/admin/plans/${id}`),
+  adminListOrgs: () => request("GET", "/api/admin/organizations"),
+  adminGetOrg: (id) => request("GET", `/api/admin/organizations/${id}`),
+  adminUpdateOrg: (id, data) => request("PUT", `/api/admin/organizations/${id}`, data),
+
   // Settings
-  createUser: (data) => request("POST", "/api/settings/users", data),
   listUsers: () => request("GET", "/api/settings/users"),
+  createUser: (data) => request("POST", "/api/settings/users", data),
   revokeSessions: () => request("POST", "/api/settings/revoke-sessions"),
   getUserSettings: () => request("GET", "/api/settings/user"),
-  savePrinter: (name) => request("POST", "/api/settings/user/printer", { printer_name: name }),
-  regenerateAgentToken: () => request("POST", "/api/settings/user/agent-token/regenerate"),
+  setUserDefaultAgent: (agentId) =>
+    request("PUT", "/api/settings/user/default-agent", { agent_id: agentId }),
 
-  // Agent
+  // Agent + printers (updated)
   agentStatus: () => request("GET", "/api/agent/status"),
-  listPrinters: () => request("GET", "/api/printers"),
+  listPrinters: (agentId) =>
+    request("GET", `/api/printers${agentId ? "?agent_id=" + agentId : ""}`),
 };
 
 export { getToken };

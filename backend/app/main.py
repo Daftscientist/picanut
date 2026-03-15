@@ -20,15 +20,21 @@ from .routes.products import products_bp
 from .routes.print_jobs import print_jobs_bp
 from .routes.webhooks import webhooks_bp
 from .routes.settings import settings_bp
+from .routes.agents import agents_bp
+from .routes.billing import billing_bp
+from .routes.admin import admin_bp
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-logger = logging.getLogger("labelflow")
+logger = logging.getLogger("canopy")
 
-app = Sanic("LabelFlow")
+app = Sanic("Canopy")
 CORS(app, origins="*", automatic_options=True)
 
 EXCLUDED_AUTH_PATHS = [
     "/api/auth/login",
+    "/api/auth/signup",
+    "/api/billing/plans",
+    "/api/billing/webhook",
     "/api/webhooks/",
     "/api/agent/poll",
     "/api/agent/result",
@@ -39,6 +45,9 @@ app.blueprint(products_bp)
 app.blueprint(print_jobs_bp)
 app.blueprint(webhooks_bp)
 app.blueprint(settings_bp)
+app.blueprint(agents_bp)
+app.blueprint(billing_bp)
+app.blueprint(admin_bp)
 
 
 @app.middleware("request")
@@ -50,11 +59,11 @@ async def check_auth(request):
 
 @app.listener("before_server_start")
 async def setup(app, loop):
-    # Per-user agent state
-    app.ctx.agent_queues = {}          # user_id -> asyncio.Queue
-    app.ctx.agent_last_seen = {}       # user_id -> float
-    app.ctx.agent_result_futures = {}  # job_id  -> Future
-    app.ctx.token_to_user = {}         # agent_token -> user_id (in-memory cache)
+    # Per-agent state (keyed by agent_id)
+    app.ctx.token_to_agent = {}          # agent_token -> agent_id
+    app.ctx.agent_queues = {}            # agent_id -> asyncio.Queue
+    app.ctx.agent_last_seen = {}         # agent_id -> float
+    app.ctx.agent_result_futures = {}    # job_id -> Future
 
     logger.info("Running database migrations...")
     run_migrations()
@@ -73,32 +82,30 @@ async def teardown(app, loop):
     await close_pool()
 
 
-# ── Token → user lookup (cached) ─────────────────────────────────────────────
+# ── Token → agent_id lookup (cached) ─────────────────────────────────────────
 
-async def resolve_agent_token(token: str):
-    """Return user_id for the given agent token, or None if invalid."""
-    if token in app.ctx.token_to_user:
-        return app.ctx.token_to_user[token]
+async def resolve_agent_token(token: str) -> str | None:
+    """Return agent_id for the given agent token, or None if invalid."""
+    if token in app.ctx.token_to_agent:
+        return app.ctx.token_to_agent[token]
     pool = get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT user_id FROM user_settings WHERE agent_token = $1", token
-        )
+        row = await conn.fetchrow("SELECT id FROM agents WHERE token = $1", token)
     if row:
-        uid = row["user_id"]
-        app.ctx.token_to_user[token] = uid
-        return uid
+        agent_id = row["id"]
+        app.ctx.token_to_agent[token] = agent_id
+        return agent_id
     return None
 
 
-def _agent_queue(user_id: str) -> asyncio.Queue:
-    if user_id not in app.ctx.agent_queues:
-        app.ctx.agent_queues[user_id] = asyncio.Queue()
-    return app.ctx.agent_queues[user_id]
+def _agent_queue(agent_id: str) -> asyncio.Queue:
+    if agent_id not in app.ctx.agent_queues:
+        app.ctx.agent_queues[agent_id] = asyncio.Queue()
+    return app.ctx.agent_queues[agent_id]
 
 
-def _agent_connected(user_id: str) -> bool:
-    last = app.ctx.agent_last_seen.get(user_id)
+def _agent_connected(agent_id: str) -> bool:
+    last = app.ctx.agent_last_seen.get(agent_id)
     return last is not None and (asyncio.get_event_loop().time() - last) < 35
 
 
@@ -107,17 +114,17 @@ def _agent_connected(user_id: str) -> bool:
 @app.get("/api/agent/poll")
 async def agent_poll(request):
     token = request.args.get("token", "")
-    user_id = await resolve_agent_token(token)
-    if not user_id:
+    agent_id = await resolve_agent_token(token)
+    if not agent_id:
         return sanic_json({"error": "Unauthorized"}, status=401)
 
-    app.ctx.agent_last_seen[user_id] = asyncio.get_event_loop().time()
+    app.ctx.agent_last_seen[agent_id] = asyncio.get_event_loop().time()
     try:
-        cmd = await asyncio.wait_for(_agent_queue(user_id).get(), timeout=25.0)
-        app.ctx.agent_last_seen[user_id] = asyncio.get_event_loop().time()
+        cmd = await asyncio.wait_for(_agent_queue(agent_id).get(), timeout=25.0)
+        app.ctx.agent_last_seen[agent_id] = asyncio.get_event_loop().time()
         return sanic_json(cmd)
     except asyncio.TimeoutError:
-        app.ctx.agent_last_seen[user_id] = asyncio.get_event_loop().time()
+        app.ctx.agent_last_seen[agent_id] = asyncio.get_event_loop().time()
         return sanic_json({"cmd": "ping"})
 
 
@@ -126,11 +133,11 @@ async def agent_poll(request):
 @app.post("/api/agent/result")
 async def agent_result(request):
     token = request.args.get("token", "")
-    user_id = await resolve_agent_token(token)
-    if not user_id:
+    agent_id = await resolve_agent_token(token)
+    if not agent_id:
         return sanic_json({"error": "Unauthorized"}, status=401)
 
-    app.ctx.agent_last_seen[user_id] = asyncio.get_event_loop().time()
+    app.ctx.agent_last_seen[agent_id] = asyncio.get_event_loop().time()
     data = request.json or {}
     job_id = data.get("job_id")
     if job_id and job_id in app.ctx.agent_result_futures:
@@ -140,38 +147,62 @@ async def agent_result(request):
     return sanic_json({"ok": True})
 
 
-# ── Agent status (for current logged-in user) ─────────────────────────────────
+# ── Agent status (for current logged-in user's org) ───────────────────────────
 
 @app.get("/api/agent/status")
 async def agent_status(request):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
+    if not org_id:
+        return sanic_json({"agents": []})
+
     pool = get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT agent_token, selected_printer FROM user_settings WHERE user_id = $1",
-            user_id,
+        rows = await conn.fetch(
+            "SELECT id, name, token, selected_printer, paper_size, is_default FROM agents WHERE org_id = $1",
+            org_id,
         )
-    token = row["agent_token"] if row else None
-    printer = row["selected_printer"] if row else None
-    return sanic_json({
-        "connected": _agent_connected(user_id),
-        "agent_token": token,
-        "selected_printer": printer,
-    })
+
+    agents = []
+    for row in rows:
+        d = dict(row)
+        d["connected"] = _agent_connected(d["id"])
+        agents.append(d)
+
+    return sanic_json({"agents": agents})
 
 
-# ── Printer list (for current user's agent) ───────────────────────────────────
+# ── Printer list ───────────────────────────────────────────────────────────────
 
 @app.get("/api/printers")
 async def get_printers(request):
-    user_id = request.ctx.user["user_id"]
-    if not _agent_connected(user_id):
+    user = request.ctx.user
+    org_id = user.get("org_id")
+
+    # Determine which agent to query
+    agent_id = request.args.get("agent_id", "").strip()
+    if not agent_id:
+        # Try user's default agent
+        agent_id = user.get("default_agent_id") or ""
+    if not agent_id and org_id:
+        # Fall back to org's default agent
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT default_agent_id FROM organizations WHERE id=$1", org_id
+            )
+        if row and row["default_agent_id"]:
+            agent_id = row["default_agent_id"]
+
+    if not agent_id:
+        return sanic_json({"error": "No agent configured"}, status=503)
+
+    if not _agent_connected(agent_id):
         return sanic_json({"error": "No print agent connected"}, status=503)
 
     job_id = str(uuid.uuid4())
     fut = asyncio.get_event_loop().create_future()
     app.ctx.agent_result_futures[job_id] = fut
-    await _agent_queue(user_id).put({"cmd": "list_printers", "job_id": job_id})
+    await _agent_queue(agent_id).put({"cmd": "list_printers", "job_id": job_id})
     try:
         result = await asyncio.wait_for(fut, timeout=30.0)
         return sanic_json({"printers": result.get("printers", [])})
@@ -187,21 +218,39 @@ async def get_printers(request):
 
 @app.post("/api/print/dispatch")
 async def dispatch_print(request):
-    user_id = request.ctx.user["user_id"]
-    if not _agent_connected(user_id):
+    user = request.ctx.user
+    org_id = user.get("org_id")
+
+    # Determine which agent to use
+    agent_id = request.headers.get("X-Agent-Id", "").strip()
+    if not agent_id:
+        agent_id = user.get("default_agent_id") or ""
+    if not agent_id and org_id:
+        pool = get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT default_agent_id FROM organizations WHERE id=$1", org_id
+            )
+        if row and row["default_agent_id"]:
+            agent_id = row["default_agent_id"]
+
+    if not agent_id:
+        return sanic_json({"error": "No agent configured for this organisation"}, status=503)
+
+    if not _agent_connected(agent_id):
         return sanic_json({"error": "No print agent connected. Is the agent running?"}, status=503)
 
-    # Printer: header override or user's saved preference
+    # Printer: header override or agent's saved preference
     printer_name = request.headers.get("X-Printer-Name", "").strip()
     if not printer_name:
         pool = get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT selected_printer FROM user_settings WHERE user_id = $1", user_id
+                "SELECT selected_printer FROM agents WHERE id=$1", agent_id
             )
         printer_name = (row["selected_printer"] or "").strip() if row else ""
     if not printer_name:
-        return sanic_json({"error": "No printer selected. Choose one in Settings."}, status=400)
+        return sanic_json({"error": "No printer selected. Configure one in Agents settings."}, status=400)
 
     raster_bytes = request.body
     if not raster_bytes:
@@ -210,7 +259,7 @@ async def dispatch_print(request):
     job_id = str(uuid.uuid4())
     fut = asyncio.get_event_loop().create_future()
     app.ctx.agent_result_futures[job_id] = fut
-    await _agent_queue(user_id).put({
+    await _agent_queue(agent_id).put({
         "cmd": "print",
         "job_id": job_id,
         "printer": printer_name,
@@ -253,9 +302,11 @@ async def ensure_admin_user():
         count = await conn.fetchval("SELECT COUNT(*) FROM users")
         if count == 0:
             pw_hash = await hash_password("admin")
+            org_id = await conn.fetchval("SELECT id FROM organizations WHERE slug='default'")
             await conn.execute(
-                "INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, TRUE)",
-                "admin", pw_hash,
+                """INSERT INTO users (username, password_hash, is_admin, org_id, role, is_platform_admin)
+                   VALUES ($1, $2, TRUE, $3, 'manager', TRUE)""",
+                "admin", pw_hash, org_id,
             )
             logger.warning(
                 "DEFAULT ADMIN USER CREATED — username: admin, password: admin. "
@@ -300,7 +351,7 @@ if os.path.isdir(dist_dir):
 else:
     @app.route("/")
     async def no_frontend(request):
-        return sanic_json({"message": "LabelFlow API running. Frontend not built."})
+        return sanic_json({"message": "Canopy BMS API running. Frontend not built."})
 
 
 if __name__ == "__main__":

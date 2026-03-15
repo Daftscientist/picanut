@@ -11,6 +11,9 @@ class Config:
     SECRET_KEY: str = os.environ.get("SECRET_KEY", "changeme-secret-key")
     DEBUG: bool = os.environ.get("DEBUG", "false").lower() == "true"
     DIST_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
+    STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PUBLISHABLE_KEY: str = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 
 
 config = Config()

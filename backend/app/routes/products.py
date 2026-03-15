@@ -10,18 +10,19 @@ products_bp = Blueprint("products", url_prefix="/api")
 
 @products_bp.route("/tags", methods=["GET"])
 async def list_tags(request):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id, name, colour FROM tags WHERE owner_id=$1 ORDER BY name",
-            user_id,
+            "SELECT id, name, colour FROM tags WHERE org_id=$1 ORDER BY name",
+            org_id,
         )
     return sanic_json([dict(r) for r in rows])
 
 
 @products_bp.route("/tags", methods=["POST"])
 async def create_tag(request):
+    org_id = request.ctx.user.get("org_id")
     user_id = request.ctx.user["user_id"]
     data = request.json or {}
     name = data.get("name", "").strip()
@@ -31,23 +32,23 @@ async def create_tag(request):
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "INSERT INTO tags (name, colour, owner_id) VALUES ($1, $2, $3) RETURNING id, name, colour",
-            name, colour, user_id,
+            "INSERT INTO tags (name, colour, owner_id, org_id) VALUES ($1, $2, $3, $4) RETURNING id, name, colour",
+            name, colour, user_id, org_id,
         )
     return sanic_json(dict(row), status=201)
 
 
 @products_bp.route("/tags/<tag_id>", methods=["PUT"])
 async def update_tag(request, tag_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     data = request.json or {}
     name = data.get("name", "").strip()
     colour = data.get("colour", "").strip()
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "UPDATE tags SET name=COALESCE(NULLIF($1,''), name), colour=COALESCE(NULLIF($2,''), colour) WHERE id=$3 AND owner_id=$4 RETURNING id, name, colour",
-            name, colour, tag_id, user_id,
+            "UPDATE tags SET name=COALESCE(NULLIF($1,''), name), colour=COALESCE(NULLIF($2,''), colour) WHERE id=$3 AND org_id=$4 RETURNING id, name, colour",
+            name, colour, tag_id, org_id,
         )
     if not row:
         return sanic_json({"error": "Not found"}, status=404)
@@ -56,10 +57,10 @@ async def update_tag(request, tag_id):
 
 @products_bp.route("/tags/<tag_id>", methods=["DELETE"])
 async def delete_tag(request, tag_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
-        result = await conn.execute("DELETE FROM tags WHERE id=$1 AND owner_id=$2", tag_id, user_id)
+        result = await conn.execute("DELETE FROM tags WHERE id=$1 AND org_id=$2", tag_id, org_id)
     if result == "DELETE 0":
         return sanic_json({"error": "Not found"}, status=404)
     return sanic_json({"ok": True})
@@ -69,7 +70,7 @@ async def delete_tag(request, tag_id):
 
 @products_bp.route("/products", methods=["GET"])
 async def list_products(request):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     search = request.args.get("search", "").strip()
     tag_id = request.args.get("tag_id", "").strip()
     pool = get_pool()
@@ -80,22 +81,22 @@ async def list_products(request):
                 SELECT DISTINCT p.id, p.name, p.description, p.brand, p.created_at
                 FROM products p
                 JOIN product_tags pt ON pt.product_id = p.id
-                WHERE p.owner_id = $1 AND pt.tag_id = $2
+                WHERE p.org_id = $1 AND pt.tag_id = $2
                   AND ($3 = '' OR p.name ILIKE '%' || $3 || '%' OR p.brand ILIKE '%' || $3 || '%')
                 ORDER BY p.name
                 """,
-                user_id, tag_id, search,
+                org_id, tag_id, search,
             )
         else:
             rows = await conn.fetch(
                 """
                 SELECT id, name, description, brand, created_at
                 FROM products
-                WHERE owner_id = $1
+                WHERE org_id = $1
                   AND ($2 = '' OR name ILIKE '%' || $2 || '%' OR brand ILIKE '%' || $2 || '%')
                 ORDER BY name
                 """,
-                user_id, search,
+                org_id, search,
             )
         products = []
         for r in rows:
@@ -114,6 +115,7 @@ async def list_products(request):
 
 @products_bp.route("/products", methods=["POST"])
 async def create_product(request):
+    org_id = request.ctx.user.get("org_id")
     user_id = request.ctx.user["user_id"]
     data = request.json or {}
     name = data.get("name", "").strip()
@@ -122,12 +124,23 @@ async def create_product(request):
     description = data.get("description", "")
     brand = data.get("brand", "")
     tag_ids = data.get("tag_ids", [])
+
     pool = get_pool()
     async with pool.acquire() as conn:
+        # Check product limit
+        plan = await conn.fetchrow(
+            """SELECT p.product_limit FROM plans p
+               JOIN organizations o ON o.plan_id=p.id WHERE o.id=$1""",
+            org_id,
+        )
+        count = await conn.fetchval("SELECT COUNT(*) FROM products WHERE org_id=$1", org_id)
+        if plan and count >= plan["product_limit"] * 1.1:
+            return sanic_json({"error": "Product limit reached. Upgrade your plan.", "limit_hit": True}, status=402)
+
         async with conn.transaction():
             row = await conn.fetchrow(
-                "INSERT INTO products (name, description, brand, owner_id) VALUES ($1, $2, $3, $4) RETURNING id, name, description, brand, created_at",
-                name, description, brand, user_id,
+                "INSERT INTO products (name, description, brand, owner_id, org_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, brand, created_at",
+                name, description, brand, user_id, org_id,
             )
             product_id = row["id"]
             for tid in tag_ids:
@@ -143,12 +156,12 @@ async def create_product(request):
 
 @products_bp.route("/products/<product_id>", methods=["GET"])
 async def get_product(request, product_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, name, description, brand, created_at FROM products WHERE id=$1 AND owner_id=$2",
-            product_id, user_id,
+            "SELECT id, name, description, brand, created_at FROM products WHERE id=$1 AND org_id=$2",
+            product_id, org_id,
         )
         if not row:
             return sanic_json({"error": "Not found"}, status=404)
@@ -177,7 +190,7 @@ async def get_product(request, product_id):
 
 @products_bp.route("/products/<product_id>", methods=["PUT"])
 async def update_product(request, product_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     data = request.json or {}
     name = data.get("name", "").strip()
     description = data.get("description", "")
@@ -191,8 +204,8 @@ async def update_product(request, product_id):
                     name = COALESCE(NULLIF($1,''), name),
                     description = $2,
                     brand = $3
-                WHERE id=$4 AND owner_id=$5 RETURNING id, name, description, brand, created_at""",
-                name, description, brand, product_id, user_id,
+                WHERE id=$4 AND org_id=$5 RETURNING id, name, description, brand, created_at""",
+                name, description, brand, product_id, org_id,
             )
             if not row:
                 return sanic_json({"error": "Not found"}, status=404)
@@ -210,10 +223,10 @@ async def update_product(request, product_id):
 
 @products_bp.route("/products/<product_id>", methods=["DELETE"])
 async def delete_product(request, product_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
-        result = await conn.execute("DELETE FROM products WHERE id=$1 AND owner_id=$2", product_id, user_id)
+        result = await conn.execute("DELETE FROM products WHERE id=$1 AND org_id=$2", product_id, org_id)
     if result == "DELETE 0":
         return sanic_json({"error": "Not found"}, status=404)
     return sanic_json({"ok": True})
@@ -223,7 +236,7 @@ async def delete_product(request, product_id):
 
 @products_bp.route("/products/<product_id>/variants", methods=["POST"])
 async def create_variant(request, product_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     data = request.json or {}
     sku = data.get("sku", "").strip()
     if not sku:
@@ -231,7 +244,7 @@ async def create_variant(request, product_id):
     pool = get_pool()
     async with pool.acquire() as conn:
         exists = await conn.fetchval(
-            "SELECT id FROM products WHERE id=$1 AND owner_id=$2", product_id, user_id
+            "SELECT id FROM products WHERE id=$1 AND org_id=$2", product_id, org_id
         )
         if not exists:
             return sanic_json({"error": "Product not found"}, status=404)
@@ -253,17 +266,17 @@ async def create_variant(request, product_id):
 
 @products_bp.route("/variants/<variant_id>", methods=["PUT"])
 async def update_variant(request, variant_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     data = request.json or {}
     nutrition = data.get("nutrition_json")
     pool = get_pool()
     async with pool.acquire() as conn:
-        # Verify ownership via the parent product
+        # Verify ownership via the parent product's org_id
         owned = await conn.fetchval(
             """SELECT pv.id FROM product_variants pv
                JOIN products p ON p.id = pv.product_id
-               WHERE pv.id=$1 AND p.owner_id=$2""",
-            variant_id, user_id,
+               WHERE pv.id=$1 AND p.org_id=$2""",
+            variant_id, org_id,
         )
         if not owned:
             return sanic_json({"error": "Not found"}, status=404)
@@ -290,13 +303,13 @@ async def update_variant(request, variant_id):
 
 @products_bp.route("/variants/<variant_id>", methods=["DELETE"])
 async def delete_variant(request, variant_id):
-    user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
     pool = get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
             """DELETE FROM product_variants WHERE id=$1
-               AND product_id IN (SELECT id FROM products WHERE owner_id=$2)""",
-            variant_id, user_id,
+               AND product_id IN (SELECT id FROM products WHERE org_id=$2)""",
+            variant_id, org_id,
         )
     if result == "DELETE 0":
         return sanic_json({"error": "Not found"}, status=404)
