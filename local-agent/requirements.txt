@@ -1,2 +1,2 @@
-websockets>=10.4
+websockets>=10.4,<14
 pywin32>=306
