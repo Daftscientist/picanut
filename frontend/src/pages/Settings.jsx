@@ -161,7 +161,25 @@ export default function Settings() {
     } catch (err) { toast.error(err.message); setRevokingAll(false); }
   }
 
+  const [regenerating, setRegenerating] = useState(false);
   const printerReady = agentRunning && !!selectedPrinter;
+  const wsUrl = window.location.origin.replace(/^http/, "ws");
+  const agentCmd = `python print_agent.py --url ${wsUrl} --token ${agentToken || "…"}`;
+
+  async function handleRegenerateToken() {
+    if (!confirm("This will disconnect the current agent. You'll need to restart it with the new token. Continue?")) return;
+    setRegenerating(true);
+    try {
+      const res = await api.regenerateAgentToken();
+      setAgentToken(res.token);
+      setAgentRunning(false);
+      toast.success("New token generated — restart the agent with the new command");
+    } catch (err) {
+      toast.error(`Failed: ${err.message}`);
+    } finally {
+      setRegenerating(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -169,25 +187,44 @@ export default function Settings() {
         <h1>Settings</h1>
       </div>
 
-      {/* ── Printer ── */}
+      {/* ── Print Agent ── */}
       <div className="card section">
-        <h2 style={{ marginBottom: 20 }}>Printer</h2>
+        <h2 style={{ marginBottom: 20 }}>Print Agent</h2>
 
         {/* Agent status row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-          <span className="status-dot" style={{ width: 12, height: 12, flexShrink: 0, background: agentRunning ? "var(--success)" : "var(--text-muted)" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+          <span style={{ width: 12, height: 12, flexShrink: 0, borderRadius: "50%", background: agentRunning ? "var(--success)" : "var(--text-muted)", display: "inline-block" }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600 }}>{agentRunning ? "Print agent running" : "Print agent not detected"}</div>
-            <div className="text-xs text-muted">ws://localhost:{AGENT_PORT}</div>
+            <div style={{ fontWeight: 600 }}>{agentRunning ? "Agent connected" : "Agent not connected"}</div>
+            <div className="text-xs text-muted">{agentRunning ? "Ready to receive print jobs" : "Start the agent on your Windows PC"}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={handleCheckAgent} disabled={checkingAgent}>
             {checkingAgent ? <span className="spinner dark" style={{ width: 14, height: 14 }} /> : "Refresh"}
           </button>
         </div>
 
+        {/* Token */}
+        <div className="form-group" style={{ marginBottom: 24 }}>
+          <label>Agent Token</label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <code style={{ flex: 1, background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.8125rem", fontFamily: "monospace", wordBreak: "break-all", display: "block" }}>
+              {agentToken || "Loading…"}
+            </code>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(agentToken); toast.success("Copied"); }} disabled={!agentToken}>
+                Copy
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleRegenerateToken} disabled={regenerating || !agentToken}>
+                {regenerating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Regenerate"}
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-muted" style={{ marginTop: 6 }}>Regenerating disconnects the current agent — restart it with the new token.</p>
+        </div>
+
         {/* Printer selector */}
         <div className="form-group" style={{ marginBottom: 20 }}>
-          <label>Printer</label>
+          <label>Active Printer</label>
           <div style={{ display: "flex", gap: 10 }}>
             <select
               value={selectedPrinter}
@@ -196,7 +233,7 @@ export default function Settings() {
               disabled={!agentRunning || printers.length === 0}
             >
               {printers.length === 0 ? (
-                <option value="">— click Load Printers —</option>
+                <option value="">{agentRunning ? "— click Load Printers —" : "— connect agent first —"}</option>
               ) : (
                 <>
                   <option value="">Select a printer…</option>
@@ -206,24 +243,20 @@ export default function Settings() {
                 </>
               )}
             </select>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleLoadPrinters}
-              disabled={!agentRunning || loadingPrinters}
-            >
+            <button className="btn btn-ghost btn-sm" onClick={handleLoadPrinters} disabled={!agentRunning || loadingPrinters}>
               {loadingPrinters ? <span className="spinner dark" style={{ width: 14, height: 14 }} /> : "Load Printers"}
             </button>
           </div>
-          <p className="text-xs text-muted">Lists all printers installed on your local computer.</p>
+          <p className="text-xs text-muted">Printer list comes from the connected Windows PC.</p>
         </div>
 
         {/* Test print */}
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 24, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 28, flexWrap: "wrap" }}>
           <button
             className="btn btn-primary btn-sm"
             onClick={handleTestPrint}
-            disabled={testPrinting || !printerReady || !selectedPrinter}
-            title={!agentRunning ? "Start the print agent first" : !selectedPrinter ? "Select a printer first" : ""}
+            disabled={testPrinting || !printerReady}
+            title={!agentRunning ? "Connect the agent first" : !selectedPrinter ? "Select a printer first" : ""}
           >
             {testPrinting ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Printing…</> : "Test Print"}
           </button>
@@ -231,34 +264,47 @@ export default function Settings() {
         </div>
 
         {/* Setup instructions */}
-        <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "16px 20px" }}>
-          <div style={{ fontWeight: 700, marginBottom: 10, fontSize: "0.9375rem" }}>Setup (one time, on your Windows PC)</div>
-          <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+        <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "20px 24px" }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, fontSize: "0.9375rem" }}>Agent Setup</div>
+          <p className="text-sm text-muted" style={{ marginBottom: 16 }}>
+            Run this once on the Windows PC connected to the printer. The agent connects outbound to this server, so printing works from any device on any network.
+          </p>
+          <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 12, fontSize: "0.875rem", color: "var(--text-secondary)" }}>
             <li>
-              <a href="/print_agent.py" download style={{ color: "var(--accent)", fontWeight: 600 }}>
-                Download print_agent.py
-              </a>
-              {" "}— save it anywhere on your Windows machine
+              <a href="/print_agent.py" download style={{ color: "var(--accent)", fontWeight: 600 }}>Download print_agent.py</a>
+              {" "}and save it anywhere on the Windows PC.
             </li>
             <li>
               Install dependencies:
-              <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px", marginTop: 6, fontSize: "0.8125rem", fontFamily: "monospace" }}>
+              <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", marginTop: 8, fontSize: "0.8125rem", fontFamily: "monospace" }}>
                 pip install websockets pywin32
               </code>
             </li>
             <li>
-              Run the agent (connects to this server):
-              <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px", marginTop: 6, fontSize: "0.8125rem", fontFamily: "monospace", whiteSpace: "pre" }}>
-                {`python print_agent.py --url ${window.location.origin.replace("http", "ws")} --token ${agentToken || "YOUR_AGENT_TOKEN"}`}
-              </code>
+              Run the agent:
+              <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "stretch" }}>
+                <code style={{ flex: 1, background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.8125rem", fontFamily: "monospace", wordBreak: "break-all", display: "block" }}>
+                  {agentCmd}
+                </code>
+                <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, alignSelf: "stretch" }} onClick={() => { navigator.clipboard.writeText(agentCmd); toast.success("Copied"); }}>
+                  Copy
+                </button>
+              </div>
             </li>
-            <li>Click <strong>Refresh</strong> above — the dot should turn green</li>
-            <li>Click <strong>Load Printers</strong>, select your Brother printer, then <strong>Test Print</strong></li>
+            <li>Click <strong>Refresh</strong> above — the dot turns green when connected.</li>
+            <li>Click <strong>Load Printers</strong>, select your Brother printer, then <strong>Test Print</strong>.</li>
           </ol>
-          <p className="text-xs text-muted" style={{ marginTop: 12 }}>
-            The agent connects outbound to this server — print from any device, any network, even mobile data.
-            To run it silently in the background, install it as a Windows service with NSSM using <code>pythonw.exe</code> — see the README.
-          </p>
+          <div style={{ marginTop: 20, padding: "14px 16px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.875rem" }}>Run silently in the background (no window)</div>
+            <p className="text-xs text-muted" style={{ marginBottom: 10 }}>Install as a Windows service with NSSM so it starts automatically and runs silently:</p>
+            <code style={{ display: "block", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.8rem", fontFamily: "monospace", whiteSpace: "pre", overflowX: "auto" }}>
+              {`nssm install LabelFlowAgent "C:\\Python311\\pythonw.exe"\nnssm set LabelFlowAgent AppParameters "C:\\path\\to\\print_agent.py --url ${wsUrl} --token ${agentToken || "…"}"\nnssm set LabelFlowAgent AppDirectory "C:\\path\\to\\agent\\folder"\nnssm start LabelFlowAgent`}
+            </code>
+            <p className="text-xs text-muted" style={{ marginTop: 8 }}>
+              Logs are written to <code>print_agent.log</code> next to the script.
+              Download NSSM from <strong>nssm.cc</strong>.
+            </p>
+          </div>
         </div>
       </div>
 

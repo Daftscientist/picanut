@@ -106,6 +106,7 @@ export const api = {
   // Agent
   agentStatus: () => request("GET", "/api/agent/status"),
   listPrinters: () => request("GET", "/api/printers"),
+  regenerateAgentToken: () => request("POST", "/api/settings/agent-token/regenerate"),
 };
 
 export { getToken };

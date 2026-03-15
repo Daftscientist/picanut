@@ -1,3 +1,4 @@
+import secrets
 from sanic import Blueprint
 from sanic.response import json as sanic_json
 from ..db import get_pool
@@ -28,6 +29,27 @@ async def create_user(request):
     result = dict(row)
     result["created_at"] = result["created_at"].isoformat()
     return sanic_json(result, status=201)
+
+
+@settings_bp.route("/agent-token/regenerate", methods=["POST"])
+async def regenerate_agent_token(request):
+    new_token = secrets.token_urlsafe(32)
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES ('agent_token', $1) "
+            "ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()",
+            new_token,
+        )
+    request.app.ctx.agent_token = new_token
+    # Disconnect current agent — it must reconnect with the new token
+    ws = request.app.ctx.agent_ws
+    if ws:
+        try:
+            await ws.close(4001, "Token regenerated")
+        except Exception:
+            pass
+    return sanic_json({"token": new_token})
 
 
 @settings_bp.route("/revoke-sessions", methods=["POST"])

@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import uuid
+import secrets
 import logging
 import subprocess
 import asyncio
@@ -49,6 +50,7 @@ async def check_auth(request):
 async def setup(app, loop):
     app.ctx.agent_ws = None
     app.ctx.agent_jobs = {}
+    app.ctx.agent_token = None
 
     logger.info("Running database migrations...")
     run_migrations()
@@ -59,6 +61,9 @@ async def setup(app, loop):
     logger.info("Ensuring default admin user...")
     await ensure_admin_user()
 
+    logger.info("Ensuring agent token...")
+    app.ctx.agent_token = await ensure_agent_token()
+
     logger.info("Server ready.")
 
 
@@ -67,7 +72,7 @@ async def setup(app, loop):
 @app.websocket("/api/ws/agent")
 async def agent_ws_handler(request, ws):
     token = request.args.get("token", "")
-    if token != config.AGENT_TOKEN:
+    if not token or token != app.ctx.agent_token:
         await ws.close(4001, "Unauthorized")
         return
 
@@ -99,7 +104,7 @@ async def agent_ws_handler(request, ws):
 async def agent_status(request):
     return sanic_json({
         "connected": app.ctx.agent_ws is not None,
-        "token": config.AGENT_TOKEN,
+        "token": app.ctx.agent_token,
     })
 
 
@@ -178,6 +183,21 @@ def run_migrations():
         logger.error("Migration failed: %s", result.stderr)
         raise RuntimeError(f"Alembic migration failed: {result.stderr}")
     logger.info("Migrations applied: %s", result.stdout.strip() or "up to date")
+
+
+async def ensure_agent_token():
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT value FROM app_settings WHERE key = 'agent_token'")
+        if row:
+            return row["value"]
+        token = secrets.token_urlsafe(32)
+        await conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES ('agent_token', $1)",
+            token,
+        )
+        logger.info("Generated new agent token")
+        return token
 
 
 async def ensure_admin_user():
