@@ -24,6 +24,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger("labelflow")
 
 app = Sanic("LabelFlow")
+app.config.WEBSOCKET_PING_INTERVAL = None
+app.config.WEBSOCKET_PING_TIMEOUT = None
 CORS(app, origins="*", automatic_options=True)
 
 EXCLUDED_AUTH_PATHS = [
