@@ -16,11 +16,16 @@ Or set environment variables:
 
 import asyncio
 import base64
+import io
 import json
 import os
 import ssl
 import sys
 import time
+
+# Force UTF-8 output so Windows cp1252 doesn't choke on log characters
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 try:
     import aiohttp
@@ -41,7 +46,7 @@ def log(msg):
     line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
     print(line, flush=True)
     try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
+        with open(LOG_FILE, "a", encoding="utf-8", errors="replace") as f:
             f.write(line + "\n")
     except Exception:
         pass
@@ -124,7 +129,7 @@ async def run(server_url: str, token: str):
             elif command == "print":
                 printer = cmd.get("printer", "")
                 data_b64 = cmd.get("data", "")
-                log(f"Print job → '{printer}'")
+                log(f"Print job -> '{printer}'")
                 try:
                     data = base64.b64decode(data_b64)
                     log(f"  {len(data):,} bytes — printing...")
