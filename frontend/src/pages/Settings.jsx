@@ -19,6 +19,9 @@ export default function Settings() {
   const [selectedPrinter, setSelectedPrinterState] = useState(getSelectedPrinter);
   const [testPrinting, setTestPrinting] = useState(false);
 
+  // Admin
+  const [isAdmin, setIsAdmin] = useState(false);
+
   // Tags, users, etc.
   const [tags, setTags] = useState([]);
   const [users, setUsers] = useState([]);
@@ -29,15 +32,27 @@ export default function Settings() {
   const [savingUser, setSavingUser] = useState(false);
   const [revokingAll, setRevokingAll] = useState(false);
 
-  const webhookUrl = `${window.location.origin}/api/webhooks/woocommerce`;
+  const webhookUrl = agentToken
+    ? `${window.location.origin}/api/webhooks/woocommerce?token=${agentToken}`
+    : `${window.location.origin}/api/webhooks/woocommerce?token=…`;
 
-  useEffect(() => { loadAll(); handleCheckAgent(); loadUserSettings(); }, []);
+  useEffect(() => { loadAll(); handleCheckAgent(); loadUserSettings(); loadMe(); }, []);
+
+  async function loadMe() {
+    try {
+      const me = await api.me();
+      setIsAdmin(me.is_admin === true);
+      if (me.is_admin) {
+        const u = await api.listUsers();
+        setUsers(u);
+      }
+    } catch {}
+  }
 
   async function loadAll() {
     try {
-      const [t, u] = await Promise.all([api.getTags(), api.listUsers()]);
+      const t = await api.getTags();
       setTags(t);
-      setUsers(u);
     } catch {}
   }
 
@@ -227,15 +242,15 @@ export default function Settings() {
         <div className="form-group" style={{ marginBottom: 24 }}>
           <label>Agent Token</label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <code style={{ flex: 1, background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.8125rem", fontFamily: "monospace", wordBreak: "break-all", display: "block" }}>
-              {agentToken || "Loading…"}
+            <code style={{ flex: 1, background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: "0.8125rem", fontFamily: "monospace", wordBreak: "break-all", display: "block", color: agentToken ? undefined : "var(--text-muted)" }}>
+              {agentToken || "No token yet — click Generate"}
             </code>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(agentToken); toast.success("Copied"); }} disabled={!agentToken}>
                 Copy
               </button>
-              <button className="btn btn-danger btn-sm" onClick={handleRegenerateToken} disabled={regenerating || !agentToken}>
-                {regenerating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Regenerate"}
+              <button className="btn btn-danger btn-sm" onClick={handleRegenerateToken} disabled={regenerating}>
+                {regenerating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : agentToken ? "Regenerate" : "Generate"}
               </button>
             </div>
           </div>
@@ -387,8 +402,8 @@ export default function Settings() {
         </form>
       </div>
 
-      {/* ── Users ── */}
-      <div className="card section">
+      {/* ── Users (admin only) ── */}
+      {isAdmin && <div className="card section">
         <h2 style={{ marginBottom: 16 }}>User Accounts</h2>
         {users.length > 0 && (
           <div style={{ marginBottom: 20, overflowX: "auto" }}>
@@ -418,7 +433,7 @@ export default function Settings() {
             {savingUser ? <span className="spinner" /> : "Create User"}
           </button>
         </form>
-      </div>
+      </div>}
 
       {/* ── Sessions ── */}
       <div className="card section">

@@ -253,7 +253,7 @@ async def ensure_admin_user():
         if count == 0:
             pw_hash = await hash_password("admin")
             await conn.execute(
-                "INSERT INTO users (username, password_hash) VALUES ($1, $2)",
+                "INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, TRUE)",
                 "admin", pw_hash,
             )
             logger.warning(

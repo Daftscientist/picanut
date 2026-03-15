@@ -12,6 +12,7 @@ logger = logging.getLogger("labelflow.print_jobs")
 
 @print_jobs_bp.route("/render", methods=["POST"])
 async def render(request):
+    user_id = request.ctx.user["user_id"]
     data = request.json or {}
     variant_id = data.get("variant_id")
     label_type = int(data.get("label_type", 1))
@@ -28,8 +29,8 @@ async def render(request):
                           p.description, p.brand
                    FROM product_variants pv
                    JOIN products p ON p.id = pv.product_id
-                   WHERE pv.id = $1""",
-                variant_id,
+                   WHERE pv.id = $1 AND p.owner_id = $2""",
+                variant_id, user_id,
             )
         if not variant:
             return sanic_json({"error": "Variant not found"}, status=404)
@@ -41,13 +42,11 @@ async def render(request):
         params["weight_g"] = float(variant["weight_g"]) if variant["weight_g"] is not None else None
         params["price_gbp"] = float(variant["price_gbp"]) if variant["price_gbp"] is not None else None
         nutrition = variant["nutrition_json"]
-        if nutrition:
-            if isinstance(nutrition, str):
-                nutrition = json_module.loads(nutrition)
+        if nutrition and isinstance(nutrition, str):
+            nutrition = json_module.loads(nutrition)
         params["nutrition_json"] = nutrition
         params["ingredients"] = data.get("ingredients", "")
 
-    # Label type 2 override fields
     if label_type == 2:
         params["info_brand"] = data.get("info_brand", params.get("brand", ""))
         params["info_title"] = data.get("info_title", params.get("product_name", ""))
@@ -60,15 +59,14 @@ async def render(request):
         logger.error("Label render error: %s", e)
         return sanic_json({"error": str(e)}, status=500)
 
-    # Create print job record
     job_id = None
     async with pool.acquire() as conn:
         extra = {k: v for k, v in data.items() if k not in ("variant_id", "label_type", "quantity")}
         job_id = await conn.fetchval(
-            """INSERT INTO print_jobs (type, variant_id, label_type, quantity, status, extra_json)
-               VALUES ('manual', $1, $2, $3, 'queued', $4::jsonb)
+            """INSERT INTO print_jobs (type, variant_id, label_type, quantity, status, owner_id, extra_json)
+               VALUES ('manual', $1, $2, $3, 'queued', $4, $5::jsonb)
                RETURNING id""",
-            variant_id, label_type, quantity,
+            variant_id, label_type, quantity, user_id,
             json_module.dumps(extra) if extra else None,
         )
 
@@ -82,23 +80,22 @@ async def render(request):
 
 @print_jobs_bp.route("/<job_id>/confirm", methods=["POST"])
 async def confirm(request, job_id):
+    user_id = request.ctx.user["user_id"]
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """UPDATE print_jobs
                SET status='printed', printed_at=NOW()
-               WHERE id=$1
+               WHERE id=$1 AND owner_id=$2
                RETURNING id, status, woo_order_id""",
-            job_id,
+            job_id, user_id,
         )
     if not row:
         return sanic_json({"error": "Job not found"}, status=404)
 
-    # Check if all jobs for this woo_order are printed
     woo_order_id = row["woo_order_id"]
     if woo_order_id:
-        pool2 = get_pool()
-        async with pool2.acquire() as conn:
+        async with pool.acquire() as conn:
             pending = await conn.fetchval(
                 "SELECT COUNT(*) FROM print_jobs WHERE woo_order_id=$1 AND status='queued'",
                 woo_order_id,
@@ -114,6 +111,7 @@ async def confirm(request, job_id):
 
 @print_jobs_bp.route("/jobs", methods=["GET"])
 async def list_jobs(request):
+    user_id = request.ctx.user["user_id"]
     limit = int(request.args.get("limit", 10))
     status = request.args.get("status", "")
     pool = get_pool()
@@ -126,9 +124,9 @@ async def list_jobs(request):
                    FROM print_jobs pj
                    LEFT JOIN product_variants pv ON pv.id = pj.variant_id
                    LEFT JOIN products p ON p.id = pv.product_id
-                   WHERE pj.status = $1
-                   ORDER BY pj.created_at DESC LIMIT $2""",
-                status, limit,
+                   WHERE pj.owner_id = $1 AND pj.status = $2
+                   ORDER BY pj.created_at DESC LIMIT $3""",
+                user_id, status, limit,
             )
         else:
             rows = await conn.fetch(
@@ -138,8 +136,9 @@ async def list_jobs(request):
                    FROM print_jobs pj
                    LEFT JOIN product_variants pv ON pv.id = pj.variant_id
                    LEFT JOIN products p ON p.id = pv.product_id
-                   ORDER BY pj.created_at DESC LIMIT $1""",
-                limit,
+                   WHERE pj.owner_id = $1
+                   ORDER BY pj.created_at DESC LIMIT $2""",
+                user_id, limit,
             )
     result = []
     for r in rows:
@@ -152,13 +151,15 @@ async def list_jobs(request):
 
 @print_jobs_bp.route("/orders/pending", methods=["GET"])
 async def pending_orders(request):
+    user_id = request.ctx.user["user_id"]
     pool = get_pool()
     async with pool.acquire() as conn:
         orders = await conn.fetch(
             """SELECT wo.id, wo.woo_order_id, wo.raw_json, wo.imported_at, wo.status
                FROM woo_orders wo
-               WHERE wo.status = 'pending'
+               WHERE wo.owner_id = $1 AND wo.status = 'pending'
                ORDER BY wo.imported_at DESC""",
+            user_id,
         )
         result = []
         for o in orders:
@@ -170,7 +171,6 @@ async def pending_orders(request):
             od["customer_name"] = f"{raw.get('billing', {}).get('first_name', '')} {raw.get('billing', {}).get('last_name', '')}".strip()
             od["order_number"] = raw.get("number") or od["woo_order_id"]
             od["unmatched"] = raw.get("_unmatched", [])
-            # Get print jobs for this order
             jobs = await conn.fetch(
                 """SELECT pj.id, pj.quantity, pj.status, pv.sku, p.name as product_name
                    FROM print_jobs pj
@@ -187,9 +187,16 @@ async def pending_orders(request):
 
 @print_jobs_bp.route("/orders/<order_id>/print-all", methods=["POST"])
 async def print_all_for_order(request, order_id):
-    """Render and return all queued jobs for a woo order as a combined raster stream."""
+    user_id = request.ctx.user["user_id"]
     pool = get_pool()
     async with pool.acquire() as conn:
+        # Verify order ownership
+        owned = await conn.fetchval(
+            "SELECT id FROM woo_orders WHERE id=$1 AND owner_id=$2", order_id, user_id
+        )
+        if not owned:
+            return sanic_json({"error": "Order not found"}, status=404)
+
         jobs = await conn.fetch(
             """SELECT pj.id, pj.label_type, pj.quantity, pj.extra_json,
                       pv.sku, pv.barcode, pv.weight_g, pv.price_gbp, pv.nutrition_json,
@@ -217,8 +224,6 @@ async def print_all_for_order(request, order_id):
             "nutrition_json": job["nutrition_json"],
         }
         try:
-            from ..labels.renderer import render_label
-            from ..labels.printer import image_to_raster_bytes
             image = render_label(job["label_type"], params)
             raster = image_to_raster_bytes(image)
             for _ in range(job["quantity"]):

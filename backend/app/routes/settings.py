@@ -7,8 +7,17 @@ from ..auth import hash_password, delete_all_sessions
 settings_bp = Blueprint("settings", url_prefix="/api/settings")
 
 
+def _require_admin(request):
+    if not request.ctx.user.get("is_admin"):
+        return sanic_json({"error": "Admin only"}, status=403)
+    return None
+
+
 @settings_bp.route("/users", methods=["POST"])
 async def create_user(request):
+    err = _require_admin(request)
+    if err:
+        return err
     data = request.json or {}
     username = data.get("username", "").strip()
     password = data.get("password", "")
@@ -93,6 +102,9 @@ async def revoke_sessions(request):
 
 @settings_bp.route("/users", methods=["GET"])
 async def list_users(request):
+    err = _require_admin(request)
+    if err:
+        return err
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT id, username, created_at FROM users ORDER BY created_at")

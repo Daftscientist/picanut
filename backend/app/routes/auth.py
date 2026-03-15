@@ -18,7 +18,7 @@ async def login(request):
     pool = get_pool()
     async with pool.acquire() as conn:
         user = await conn.fetchrow(
-            "SELECT id, username, password_hash FROM users WHERE username = $1",
+            "SELECT id, username, password_hash, is_admin FROM users WHERE username = $1",
             username,
         )
 
@@ -26,7 +26,7 @@ async def login(request):
         return sanic_json({"error": "Invalid credentials"}, status=401)
 
     token = await create_session(user["id"])
-    return sanic_json({"token": token, "username": user["username"]})
+    return sanic_json({"token": token, "username": user["username"], "is_admin": user["is_admin"]})
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -43,4 +43,5 @@ async def me(request):
     return sanic_json({
         "user_id": request.ctx.user["user_id"],
         "username": request.ctx.user["username"],
+        "is_admin": request.ctx.user.get("is_admin", False),
     })

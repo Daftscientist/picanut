@@ -34,7 +34,7 @@ async def validate_token(token: str) -> dict | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT s.id as session_id, u.id as user_id, u.username
+            SELECT s.id as session_id, u.id as user_id, u.username, u.is_admin
             FROM sessions s
             JOIN users u ON u.id = s.user_id
             WHERE s.token = $1
