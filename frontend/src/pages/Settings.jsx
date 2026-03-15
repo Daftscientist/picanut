@@ -31,7 +31,7 @@ export default function Settings() {
 
   const webhookUrl = `${window.location.origin}/api/webhooks/woocommerce`;
 
-  useEffect(() => { loadAll(); handleCheckAgent(); }, []);
+  useEffect(() => { loadAll(); handleCheckAgent(); loadUserSettings(); }, []);
 
   async function loadAll() {
     try {
@@ -41,12 +41,27 @@ export default function Settings() {
     } catch {}
   }
 
+  async function loadUserSettings() {
+    try {
+      const s = await api.getUserSettings();
+      if (s.agent_token) setAgentToken(s.agent_token);
+      if (s.selected_printer) {
+        setSelectedPrinterState(s.selected_printer);
+        setSelectedPrinter(s.selected_printer);
+      }
+    } catch {}
+  }
+
   async function handleCheckAgent() {
     setCheckingAgent(true);
     try {
       const res = await api.agentStatus();
       setAgentRunning(res.connected === true);
-      if (res.token) setAgentToken(res.token);
+      if (res.agent_token) setAgentToken(res.agent_token);
+      if (res.selected_printer) {
+        setSelectedPrinterState(res.selected_printer);
+        setSelectedPrinter(res.selected_printer);
+      }
     } catch {
       setAgentRunning(false);
     }
@@ -64,6 +79,7 @@ export default function Settings() {
         const pick = brother || list[0];
         setSelectedPrinterState(pick);
         setSelectedPrinter(pick);
+        api.savePrinter(pick).catch(() => {});
       }
     } catch (err) {
       toast.error(`Could not load printers: ${err.message}`, 5000);
@@ -72,9 +88,14 @@ export default function Settings() {
     }
   }
 
-  function handlePrinterSelect(name) {
+  async function handlePrinterSelect(name) {
     setSelectedPrinterState(name);
     setSelectedPrinter(name);
+    try {
+      await api.savePrinter(name);
+    } catch (err) {
+      toast.error(`Could not save printer: ${err.message}`);
+    }
   }
 
   async function handleTestPrint() {
@@ -170,7 +191,7 @@ export default function Settings() {
     setRegenerating(true);
     try {
       const res = await api.regenerateAgentToken();
-      setAgentToken(res.token);
+      setAgentToken(res.agent_token);
       setAgentRunning(false);
       toast.success("New token generated — restart the agent with the new command");
     } catch (err) {

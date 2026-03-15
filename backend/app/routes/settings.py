@@ -31,25 +31,57 @@ async def create_user(request):
     return sanic_json(result, status=201)
 
 
-@settings_bp.route("/agent-token/regenerate", methods=["POST"])
-async def regenerate_agent_token(request):
-    new_token = secrets.token_urlsafe(32)
+@settings_bp.route("/user", methods=["GET"])
+async def get_user_settings(request):
+    user_id = request.ctx.user["user_id"]
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT agent_token, selected_printer FROM user_settings WHERE user_id = $1",
+            user_id,
+        )
+    return sanic_json({
+        "agent_token": row["agent_token"] if row else None,
+        "selected_printer": row["selected_printer"] if row else None,
+    })
+
+
+@settings_bp.route("/user/printer", methods=["POST"])
+async def save_user_printer(request):
+    user_id = request.ctx.user["user_id"]
+    data = request.json or {}
+    printer_name = data.get("printer_name", "").strip()
     pool = get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "INSERT INTO app_settings (key, value) VALUES ('agent_token', $1) "
-            "ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()",
-            new_token,
+            "INSERT INTO user_settings (user_id, selected_printer, updated_at) VALUES ($1, $2, NOW()) "
+            "ON CONFLICT (user_id) DO UPDATE SET selected_printer = $2, updated_at = NOW()",
+            user_id, printer_name or None,
         )
-    request.app.ctx.agent_token = new_token
-    # Disconnect current agent — it must reconnect with the new token
-    ws = request.app.ctx.agent_ws
-    if ws:
-        try:
-            await ws.close(4001, "Token regenerated")
-        except Exception:
-            pass
-    return sanic_json({"token": new_token})
+    return sanic_json({"ok": True})
+
+
+@settings_bp.route("/user/agent-token/regenerate", methods=["POST"])
+async def regenerate_user_agent_token(request):
+    user_id = request.ctx.user["user_id"]
+    new_token = secrets.token_urlsafe(32)
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        # Fetch old token to remove from cache
+        old_row = await conn.fetchrow(
+            "SELECT agent_token FROM user_settings WHERE user_id = $1", user_id
+        )
+        old_token = old_row["agent_token"] if old_row else None
+        await conn.execute(
+            "INSERT INTO user_settings (user_id, agent_token, updated_at) VALUES ($1, $2, NOW()) "
+            "ON CONFLICT (user_id) DO UPDATE SET agent_token = $2, updated_at = NOW()",
+            user_id, new_token,
+        )
+    # Update in-memory cache
+    if old_token and old_token in request.app.ctx.token_to_user:
+        del request.app.ctx.token_to_user[old_token]
+    request.app.ctx.token_to_user[new_token] = user_id
+    return sanic_json({"agent_token": new_token})
 
 
 @settings_bp.route("/revoke-sessions", methods=["POST"])

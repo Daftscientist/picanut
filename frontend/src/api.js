@@ -102,11 +102,13 @@ export const api = {
   createUser: (data) => request("POST", "/api/settings/users", data),
   listUsers: () => request("GET", "/api/settings/users"),
   revokeSessions: () => request("POST", "/api/settings/revoke-sessions"),
+  getUserSettings: () => request("GET", "/api/settings/user"),
+  savePrinter: (name) => request("POST", "/api/settings/user/printer", { printer_name: name }),
+  regenerateAgentToken: () => request("POST", "/api/settings/user/agent-token/regenerate"),
 
   // Agent
   agentStatus: () => request("GET", "/api/agent/status"),
   listPrinters: () => request("GET", "/api/printers"),
-  regenerateAgentToken: () => request("POST", "/api/settings/agent-token/regenerate"),
 };
 
 export { getToken };
