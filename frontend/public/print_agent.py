@@ -20,6 +20,7 @@ using pythonw.exe — see the README for instructions.
 import asyncio
 import json
 import os
+import ssl
 import sys
 import time
 
@@ -75,7 +76,11 @@ async def run(server_url: str, token: str):
     ws_url = f"{server_url}/api/ws/agent?token={token}"
     log(f"Connecting to {server_url} ...")
 
-    async with websockets.connect(ws_url, ping_interval=30, ping_timeout=10) as ws:
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+
+    async with websockets.connect(ws_url, ping_interval=30, ping_timeout=10, ssl=ssl_ctx) as ws:
         log("Connected. Waiting for print jobs.")
 
         async for message in ws:
