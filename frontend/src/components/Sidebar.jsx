@@ -200,7 +200,9 @@ export default function Sidebar({ pendingCount = 0 }) {
 
       <div className="s-foot">
         <div className="u-row">
-          <div className="av">{username.charAt(0).toUpperCase()}</div>
+          <div className="av" style={{
+            background: `linear-gradient(135deg, hsl(${(username.charCodeAt(0) * 13) % 360}, 65%, 45%) 0%, hsl(${(username.charCodeAt(0) * 13 + 40) % 360}, 65%, 35%) 100%)`,
+          }}>{username.charAt(0).toUpperCase()}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="u-name">{username}</div>
             <div className="u-role">{role}</div>

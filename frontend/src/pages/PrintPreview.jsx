@@ -11,10 +11,10 @@ import {
 export { printBytes as sendBytesToPrinter };
 
 const LABEL_TYPES = [
-  { value: 1, label: "Shelf Label",   desc: "Name · weight · price · barcode" },
-  { value: 2, label: "Info Label",    desc: "Brand · title · body text" },
-  { value: 3, label: "Product Info",  desc: "Full info with nutrition table" },
-  { value: 4, label: "Title Label",   desc: "Large centred name · price · barcode" },
+  { value: 1, icon: "🏷", label: "Shelf Label",   desc: "Name · weight · price · barcode" },
+  { value: 2, icon: "📄", label: "Info Label",    desc: "Brand · title · body text" },
+  { value: 3, icon: "📋", label: "Product Info",  desc: "Full info with nutrition table" },
+  { value: 4, icon: "🔤", label: "Title Label",   desc: "Large centred name · price · barcode" },
 ];
 
 export default function PrintPreview() {
@@ -107,125 +107,280 @@ export default function PrintPreview() {
 
   const canPrint = selectedVariant || labelType === 2;
 
+  function handleDeselect() {
+    setSelectedProduct(null);
+    setSelectedVariant(null);
+  }
+
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>Quick Print</h1>
-          <p className="text-secondary text-sm mt-1">Pick a product, choose label type, print.</p>
-        </div>
-
-        {/* Printer status */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span className="status-dot" style={{ width: 10, height: 10, background: printerReady ? "var(--success)" : "var(--text-muted)" }} />
-          <span className="text-sm" style={{ color: printerReady ? "var(--success)" : "var(--text-muted)", fontWeight: 600 }}>
-            {printerReady ? getSelectedPrinter() : "No printer selected"}
-          </span>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 36,
+              height: 36,
+              background: "var(--accent-bg)",
+              borderRadius: "var(--rs)",
+              fontSize: 18,
+            }}>✏️</span>
+            Label Designer
+          </h1>
+          <p className="text-secondary text-sm mt-2">Choose a product, pick a label type, and print.</p>
         </div>
       </div>
 
-      {!printerReady && (
-        <div style={{ background: "var(--warning-bg)", border: "1px solid #f5d5a8", color: "var(--warning)", borderRadius: "var(--radius-sm)", padding: "12px 16px", marginBottom: 20, fontSize: "0.875rem", fontWeight: 500 }}>
-          No printer selected — go to <a href="/settings" style={{ color: "var(--accent)" }}>Settings</a> to set one up.
-        </div>
-      )}
+      {/* Agent / printer status banner */}
+      <div className={`printer-banner ${printerReady ? "connected" : "disconnected"}`}>
+        <span style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: printerReady ? "var(--ok)" : "var(--warn)",
+          flexShrink: 0,
+          boxShadow: printerReady ? "0 0 0 3px var(--ok-bg)" : "0 0 0 3px var(--warn-bg)",
+        }} />
+        {printerReady ? (
+          <span>
+            Printer ready — <strong>{getSelectedPrinter()}</strong>
+          </span>
+        ) : (
+          <span>
+            No printer selected — <a href="/settings" style={{ color: "var(--warn)", fontWeight: 700 }}>Set up in Settings →</a>
+          </span>
+        )}
+      </div>
 
       <div className="print-layout">
-        {/* Main — product selection */}
+        {/* Left — product selection */}
         <div className="print-main">
+
+          {/* Selected variant chip */}
           {selectedProduct && selectedVariant && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "var(--accent-light)", border: "1.5px solid var(--accent)", borderRadius: "var(--radius-sm)", padding: "12px 16px", marginBottom: 16, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ fontWeight: 700, color: "var(--accent)", fontSize: "0.9375rem" }}>{selectedProduct.name}</div>
-                <div className="text-sm text-secondary mt-1">
-                  SKU: {selectedVariant.sku}
-                  {selectedVariant.weight_g != null && ` · ${selectedVariant.weight_g}g`}
-                  {selectedVariant.price_gbp != null && ` · £${Number(selectedVariant.price_gbp).toFixed(2)}`}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              background: "var(--accent-bg)",
+              border: "1.5px solid var(--accent)",
+              borderRadius: "var(--rs)",
+              padding: "12px 16px",
+              marginBottom: 14,
+              flexWrap: "wrap",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{
+                  width: 34,
+                  height: 34,
+                  background: "var(--accent)",
+                  borderRadius: "var(--rs)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  fontSize: 16,
+                  flexShrink: 0,
+                }}>🏷</span>
+                <div>
+                  <div style={{ fontWeight: 700, color: "var(--accent-fg)", fontSize: "0.9375rem" }}>
+                    {selectedProduct.name}
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: "var(--accent)" }}>
+                    SKU: {selectedVariant.sku}
+                    {selectedVariant.weight_g != null && ` · ${selectedVariant.weight_g}g`}
+                    {selectedVariant.price_gbp != null && ` · £${Number(selectedVariant.price_gbp).toFixed(2)}`}
+                  </div>
                 </div>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedProduct(null); setSelectedVariant(null); }}>
-                Change
+              <button className="btn btn-ghost btn-sm" onClick={handleDeselect}>
+                ✕ Change
               </button>
             </div>
           )}
 
+          {/* Product picker card */}
           <div className="card">
-            <h3 style={{ marginBottom: 14 }}>Select Product</h3>
-            <div className="search-bar mb-3">
-              <input type="search" placeholder="Search by name or brand…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="ch">
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Select Product</div>
+                <div className="text-xs text-secondary mt-1">{products.length} products</div>
+              </div>
             </div>
-            <div style={{ maxHeight: 340, overflowY: "auto" }}>
+            <div className="ct" style={{ paddingBottom: 0 }}>
+              <div className="srch mb-3">
+                <input
+                  type="search"
+                  className="fi"
+                  placeholder="Search by name or brand…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div style={{ maxHeight: 380, overflowY: "auto", paddingBottom: 4 }}>
               {filtered.length === 0 && (
-                <p className="text-muted text-sm" style={{ textAlign: "center", padding: "24px 0" }}>No products found</p>
+                <div className="empty-state" style={{ padding: "28px 20px" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+                  <p className="text-sm text-muted">No products found</p>
+                </div>
               )}
               {filtered.map((p) => (
                 <ProductRow
                   key={p.id}
                   product={p}
                   selectedVariantId={selectedVariant?.id}
-                  onSelectVariant={(prod, v) => { setSelectedProduct(prod); setSelectedVariant(v); setSearch(""); }}
+                  onSelectVariant={(prod, v) => {
+                    setSelectedProduct(prod);
+                    setSelectedVariant(v);
+                    setSearch("");
+                  }}
                 />
               ))}
             </div>
           </div>
 
+          {/* Info label fields */}
           {labelType === 2 && (
             <div className="card" style={{ marginTop: 16 }}>
-              <h3 style={{ marginBottom: 14 }}>Info Label Content</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div className="form-group">
-                  <label>Brand / Company Name *</label>
-                  <input value={infoBrand} onChange={(e) => setInfoBrand(e.target.value)} placeholder="e.g. PicaNut" />
+              <div className="ch">
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Info Label Content</div>
+                  <div className="text-xs text-secondary mt-1">Fill in the text for this custom label</div>
                 </div>
-                <div className="form-group">
-                  <label>Title *</label>
-                  <input value={infoTitle} onChange={(e) => setInfoTitle(e.target.value)} placeholder="e.g. Storage Instructions" />
+              </div>
+              <div className="ct">
+                <div className="fg">
+                  <label className="fl">Brand / Company Name *</label>
+                  <input
+                    className="fi"
+                    value={infoBrand}
+                    onChange={(e) => setInfoBrand(e.target.value)}
+                    placeholder="e.g. PicaNut"
+                  />
                 </div>
-                <div className="form-group">
-                  <label>Body Text</label>
-                  <textarea value={infoBody} onChange={(e) => setInfoBody(e.target.value)} placeholder="Label body text…" style={{ minHeight: 120 }} />
+                <div className="fg">
+                  <label className="fl">Title *</label>
+                  <input
+                    className="fi"
+                    value={infoTitle}
+                    onChange={(e) => setInfoTitle(e.target.value)}
+                    placeholder="e.g. Storage Instructions"
+                  />
+                </div>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl">Body Text</label>
+                  <textarea
+                    className="fi-ta"
+                    value={infoBody}
+                    onChange={(e) => setInfoBody(e.target.value)}
+                    placeholder="Label body text…"
+                    style={{ minHeight: 120 }}
+                  />
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Sidebar — print options */}
+        {/* Right — print options */}
         <div className="print-sidebar">
           <div className="card">
-            <h3 style={{ marginBottom: 18 }}>Print Options</h3>
+            <div className="ch">
+              <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Print Options</div>
+            </div>
+            <div className="ct">
 
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", marginBottom: 10 }}>Label Type</label>
-              {LABEL_TYPES.map((lt) => (
-                <label key={lt.value} className={`label-type-option${labelType === lt.value ? " selected" : ""}`}>
-                  <input type="radio" name="label_type" value={lt.value} checked={labelType === lt.value} onChange={() => setLabelType(lt.value)} />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.3 }}>{lt.label}</div>
-                    <div className="text-xs text-muted" style={{ marginTop: 3 }}>{lt.desc}</div>
+              {/* Label type */}
+              <div className="fg" style={{ gap: 6, marginBottom: 20 }}>
+                <label className="fl">Label Type</label>
+                {LABEL_TYPES.map((lt) => (
+                  <div
+                    key={lt.value}
+                    className={`label-type-option${labelType === lt.value ? " selected" : ""}`}
+                    onClick={() => setLabelType(lt.value)}
+                  >
+                    <span style={{
+                      fontSize: 20,
+                      lineHeight: 1,
+                      flexShrink: 0,
+                      marginTop: 1,
+                    }}>{lt.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.875rem", lineHeight: 1.3, color: "var(--text)" }}>
+                        {lt.label}
+                      </div>
+                      <div className="text-xs text-muted" style={{ marginTop: 3, lineHeight: 1.4 }}>
+                        {lt.desc}
+                      </div>
+                    </div>
+                    <span style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      border: `2px solid ${labelType === lt.value ? "var(--accent)" : "var(--border2)"}`,
+                      background: labelType === lt.value ? "var(--accent)" : "transparent",
+                      flexShrink: 0,
+                      marginTop: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.15s",
+                    }}>
+                      {labelType === lt.value && (
+                        <span style={{ color: "#fff", fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>
+                      )}
+                    </span>
                   </div>
-                </label>
-              ))}
-            </div>
-
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", marginBottom: 10 }}>Quantity</label>
-              <div className="qty-stepper">
-                <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>−</button>
-                <input type="number" min="1" max="999" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} />
-                <button type="button" onClick={() => setQuantity((q) => Math.min(999, q + 1))}>+</button>
+                ))}
               </div>
+
+              {/* Quantity */}
+              <div className="fg" style={{ marginBottom: 22 }}>
+                <label className="fl">Quantity</label>
+                <div className="qty-stepper">
+                  <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>−</button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                  <button type="button" onClick={() => setQuantity((q) => Math.min(999, q + 1))}>+</button>
+                </div>
+              </div>
+
+              {/* Print button */}
+              <button
+                className="btn btn-primary btn-lg w-full"
+                onClick={handlePrint}
+                disabled={printing || !canPrint}
+              >
+                {printing ? (
+                  <><span className="spinner" /> Printing…</>
+                ) : (
+                  <>{quantity > 1 ? `Print ${quantity}× Label` : "Print Label"}</>
+                )}
+              </button>
+
+              {!canPrint && (
+                <p className="text-xs text-muted" style={{ textAlign: "center", marginTop: 10, lineHeight: 1.5 }}>
+                  {labelType === 2
+                    ? "Fill in brand and title above to print"
+                    : "Select a product variant to enable printing"}
+                </p>
+              )}
+
+              {canPrint && !printerReady && (
+                <p className="text-xs" style={{ textAlign: "center", marginTop: 10, color: "var(--warn)", lineHeight: 1.5 }}>
+                  Printer not configured — <a href="/settings" style={{ color: "var(--warn)", fontWeight: 700 }}>Settings</a>
+                </p>
+              )}
             </div>
-
-            <button className="btn btn-primary btn-lg w-full" onClick={handlePrint} disabled={printing || !canPrint}>
-              {printing ? <><span className="spinner" /> Printing…</> : `Print${quantity > 1 ? ` ${quantity}×` : ""} Label`}
-            </button>
-
-            {!canPrint && (
-              <p className="text-xs text-muted" style={{ textAlign: "center", marginTop: 10 }}>
-                {labelType === 2 ? "Fill in brand and title above" : "Select a variant to enable printing"}
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -251,27 +406,88 @@ function ProductRow({ product, selectedVariantId, onSelectVariant }) {
 
   return (
     <div style={{ borderBottom: "1px solid var(--border)" }}>
-      <button type="button" onClick={handleExpand} style={{ width: "100%", background: isSelected ? "var(--accent-light)" : "none", border: "none", padding: "11px 4px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontFamily: "var(--font)", textAlign: "left" }}>
-        <span style={{ color: "var(--text-muted)", fontSize: 11, minWidth: 10 }}>{loading ? "…" : expanded ? "▼" : "▶"}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9375rem" }}>{product.name}</div>
-          {product.brand && <div className="text-xs text-muted" style={{ marginTop: 1 }}>{product.brand}</div>}
+      <button
+        type="button"
+        onClick={handleExpand}
+        style={{
+          width: "100%",
+          background: isSelected ? "var(--accent-bg)" : "none",
+          border: "none",
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          cursor: "pointer",
+          fontFamily: "var(--font)",
+          textAlign: "left",
+          transition: "background 0.15s",
+        }}
+      >
+        <span style={{
+          color: "var(--text3)",
+          fontSize: 10,
+          minWidth: 12,
+          transition: "transform 0.15s",
+          transform: expanded ? "rotate(90deg)" : "none",
+          display: "inline-block",
+        }}>
+          {loading ? "…" : "▶"}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, color: isSelected ? "var(--accent-fg)" : "var(--text)", fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {product.name}
+          </div>
+          {product.brand && (
+            <div className="text-xs text-muted" style={{ marginTop: 1 }}>{product.brand}</div>
+          )}
         </div>
-        <span className="text-xs text-muted" style={{ flexShrink: 0 }}>{product.variant_count} SKU{product.variant_count !== 1 ? "s" : ""}</span>
+        <span className="text-xs" style={{ flexShrink: 0, color: "var(--text3)" }}>
+          {product.variant_count} SKU{product.variant_count !== 1 ? "s" : ""}
+        </span>
       </button>
 
       {expanded && variants && (
-        <div style={{ paddingBottom: 8, paddingLeft: 20 }}>
-          {variants.length === 0 && <p className="text-xs text-muted" style={{ padding: "6px 0 10px" }}>No variants yet</p>}
+        <div style={{ paddingBottom: 8, paddingLeft: 20, paddingRight: 12 }}>
+          {variants.length === 0 && (
+            <p className="text-xs text-muted" style={{ padding: "6px 0 10px" }}>No variants yet</p>
+          )}
           {variants.map((v) => {
             const sel = v.id === selectedVariantId;
             return (
-              <button key={v.id} type="button" onClick={() => onSelectVariant(product, v)}
-                style={{ width: "100%", background: sel ? "var(--accent-light)" : "var(--bg-secondary)", border: `1.5px solid ${sel ? "var(--accent)" : "transparent"}`, borderRadius: "var(--radius-sm)", padding: "10px 14px", marginBottom: 6, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "var(--font)", textAlign: "left" }}>
-                <span style={{ fontWeight: 700, fontSize: "0.875rem", color: sel ? "var(--accent)" : "var(--text)" }}>{v.sku}</span>
-                {v.weight_g != null && <span className="text-sm text-secondary">{v.weight_g}g</span>}
-                {v.barcode && <span className="text-xs text-muted">{v.barcode}</span>}
-                {v.price_gbp != null && <span style={{ marginLeft: "auto", fontSize: "0.9rem", fontWeight: 700, color: sel ? "var(--accent)" : "var(--text)" }}>£{Number(v.price_gbp).toFixed(2)}</span>}
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => onSelectVariant(product, v)}
+                style={{
+                  width: "100%",
+                  background: sel ? "var(--accent-bg)" : "var(--surface2)",
+                  border: `1.5px solid ${sel ? "var(--accent)" : "var(--border)"}`,
+                  borderRadius: "var(--rs)",
+                  padding: "9px 13px",
+                  marginBottom: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  cursor: "pointer",
+                  fontFamily: "var(--font)",
+                  textAlign: "left",
+                  transition: "all 0.15s",
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: "0.8125rem", color: sel ? "var(--accent)" : "var(--text)", flexShrink: 0 }}>
+                  {v.sku}
+                </span>
+                {v.weight_g != null && (
+                  <span className="text-xs text-secondary">{v.weight_g}g</span>
+                )}
+                {v.barcode && (
+                  <span className="text-xs text-muted" style={{ fontFamily: "var(--mono)" }}>{v.barcode}</span>
+                )}
+                {v.price_gbp != null && (
+                  <span style={{ marginLeft: "auto", fontSize: "0.8125rem", fontWeight: 700, color: sel ? "var(--accent)" : "var(--text)", flexShrink: 0 }}>
+                    £{Number(v.price_gbp).toFixed(2)}
+                  </span>
+                )}
               </button>
             );
           })}

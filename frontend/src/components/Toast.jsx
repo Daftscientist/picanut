@@ -35,50 +35,72 @@ export function ToastProvider({ children }) {
       {children}
       <div style={styles.container}>
         {toasts.map((t) => (
-          <Toast key={t.id} toast={t} onClose={() => removeToast(t.id)} />
+          <ToastItem key={t.id} toast={t} onClose={() => removeToast(t.id)} />
         ))}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function Toast({ toast, onClose }) {
+function ToastItem({ toast, onClose }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
-  const icons = {
-    success: "✓",
-    error: "✕",
-    info: "ℹ",
-    warning: "⚠",
+  const config = {
+    success: {
+      icon: "✓",
+      borderColor: "var(--ok)",
+      iconBg: "var(--ok-bg)",
+      iconColor: "var(--ok)",
+    },
+    error: {
+      icon: "✕",
+      borderColor: "var(--danger)",
+      iconBg: "var(--danger-bg)",
+      iconColor: "var(--danger)",
+    },
+    info: {
+      icon: "i",
+      borderColor: "var(--accent)",
+      iconBg: "var(--accent-bg)",
+      iconColor: "var(--accent-fg)",
+    },
+    warning: {
+      icon: "!",
+      borderColor: "var(--warn)",
+      iconBg: "var(--warn-bg)",
+      iconColor: "var(--warn)",
+    },
   };
 
-  const colors = {
-    success: { bg: "var(--success-bg)", color: "var(--success)", border: "#b8e4bf" },
-    error: { bg: "var(--error-bg)", color: "var(--error)", border: "#f5c6c2" },
-    info: { bg: "#e8f4fd", color: "#1565c0", border: "#b3d9f5" },
-    warning: { bg: "var(--warning-bg)", color: "var(--warning)", border: "#ffe0b2" },
-  };
-
-  const c = colors[toast.type] || colors.info;
+  const c = config[toast.type] || config.info;
 
   return (
     <div
       style={{
         ...styles.toast,
-        background: c.bg,
-        color: c.color,
-        border: `1px solid ${c.border}`,
+        borderLeftColor: c.borderColor,
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(12px)",
+        transform: visible ? "translateY(0)" : "translateY(16px)",
       }}
     >
-      <span style={styles.icon}>{icons[toast.type]}</span>
+      <span
+        style={{
+          ...styles.iconBadge,
+          background: c.iconBg,
+          color: c.iconColor,
+        }}
+      >
+        {c.icon}
+      </span>
       <span style={{ ...styles.message, whiteSpace: "pre-line" }}>{toast.message}</span>
-      <button style={{ ...styles.closeBtn, color: c.color }} onClick={onClose}>
+      <button style={styles.closeBtn} onClick={onClose} aria-label="Dismiss">
         ✕
       </button>
     </div>
@@ -96,35 +118,54 @@ const styles = {
     zIndex: 9999,
     maxWidth: 380,
     width: "calc(100vw - 48px)",
+    pointerEvents: "none",
   },
   toast: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    padding: "12px 16px",
-    borderRadius: "var(--radius-md)",
-    boxShadow: "var(--shadow-md)",
-    fontSize: "0.9375rem",
+    gap: 12,
+    padding: "13px 14px",
+    borderRadius: "var(--rs)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    boxShadow: "var(--shadow-lg)",
+    border: "1px solid var(--border)",
+    borderLeft: "3px solid transparent",
+    fontSize: "13px",
     fontWeight: 500,
-    transition: "opacity 0.2s, transform 0.2s",
+    transition: "opacity 0.25s ease, transform 0.25s ease",
+    pointerEvents: "all",
+    lineHeight: 1.4,
   },
-  icon: {
-    fontSize: 16,
-    fontWeight: 700,
+  iconBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 11,
+    fontWeight: 800,
     flexShrink: 0,
+    fontStyle: "normal",
+    lineHeight: 1,
   },
   message: {
     flex: 1,
-    lineHeight: 1.4,
+    lineHeight: 1.45,
   },
   closeBtn: {
     background: "none",
     border: "none",
     cursor: "pointer",
     padding: "2px 4px",
-    fontSize: 14,
-    opacity: 0.7,
+    fontSize: 12,
+    color: "var(--text3)",
     flexShrink: 0,
     fontFamily: "inherit",
+    transition: "color 0.15s",
+    lineHeight: 1,
+    display: "flex",
+    alignItems: "center",
   },
 };
