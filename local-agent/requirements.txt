@@ -1,2 +1,2 @@
-websockets>=10.4,<14
+aiohttp>=3.9
 pywin32>=306

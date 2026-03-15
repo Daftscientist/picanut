@@ -277,7 +277,7 @@ export default function Settings() {
             <li>
               Install dependencies:
               <code style={{ display: "block", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 14px", marginTop: 8, fontSize: "0.8125rem", fontFamily: "monospace" }}>
-                pip install websockets pywin32
+                pip install aiohttp pywin32
               </code>
             </li>
             <li>

@@ -6,7 +6,7 @@ Runs on your local Windows machine. Connects outbound to your LabelFlow
 server and waits for print jobs. Print from any browser, any network.
 
 Usage:
-    pip install websockets pywin32
+    pip install aiohttp pywin32
     python print_agent.py --url wss://yourdomain.com --token YOUR_AGENT_TOKEN
 
 Or set environment variables:
@@ -25,9 +25,9 @@ import sys
 import time
 
 try:
-    import websockets
+    import aiohttp
 except ImportError:
-    print("Missing dependency. Run:  pip install websockets")
+    print("Missing dependency. Run:  pip install aiohttp")
     sys.exit(1)
 
 try:
@@ -36,7 +36,7 @@ except ImportError:
     print("Missing dependency. Run:  pip install pywin32")
     sys.exit(1)
 
-RECONNECT_DELAY = 5  # seconds between reconnect attempts
+RECONNECT_DELAY = 5
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "print_agent.log")
 
 
@@ -80,52 +80,56 @@ async def run(server_url: str, token: str):
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
 
-    async with websockets.connect(ws_url, ping_interval=None, ssl=ssl_ctx, compression=None) as ws:
-        log("Connected. Waiting for print jobs.")
+    connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+    async with aiohttp.ClientSession(connector=connector) as session:
+        async with session.ws_connect(ws_url, heartbeat=30, compress=0) as ws:
+            log("Connected. Waiting for print jobs.")
 
-        async for message in ws:
-            if not isinstance(message, str):
-                continue
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    try:
+                        cmd = json.loads(msg.data)
+                    except Exception:
+                        continue
 
-            try:
-                cmd = json.loads(message)
-            except Exception:
-                continue
+                    command = cmd.get("cmd")
+                    job_id = cmd.get("job_id", "")
 
-            command = cmd.get("cmd")
-            job_id = cmd.get("job_id", "")
+                    if command == "list_printers":
+                        try:
+                            printers = list_printers()
+                            await ws.send_str(json.dumps({"printers": printers, "job_id": job_id}))
+                            log(f"Sent printer list ({len(printers)} printers)")
+                        except Exception as exc:
+                            await ws.send_str(json.dumps({"error": str(exc), "job_id": job_id}))
 
-            if command == "list_printers":
-                try:
-                    printers = list_printers()
-                    await ws.send(json.dumps({"printers": printers, "job_id": job_id}))
-                    log(f"Sent printer list ({len(printers)} printers)")
-                except Exception as exc:
-                    await ws.send(json.dumps({"error": str(exc), "job_id": job_id}))
+                    elif command == "print":
+                        printer_name = cmd.get("printer", "")
+                        log(f"Print job received → '{printer_name}'")
 
-            elif command == "print":
-                printer_name = cmd.get("printer", "")
-                log(f"Print job received → '{printer_name}'")
+                        # Next message is the binary raster data
+                        try:
+                            next_msg = await asyncio.wait_for(ws.receive(), timeout=10)
+                        except asyncio.TimeoutError:
+                            await ws.send_str(json.dumps({"error": "Timed out waiting for data", "job_id": job_id}))
+                            continue
 
-                # Next frame is the binary raster data
-                try:
-                    payload = await asyncio.wait_for(ws.recv(), timeout=10)
-                except asyncio.TimeoutError:
-                    await ws.send(json.dumps({"error": "Timed out waiting for data", "job_id": job_id}))
-                    continue
+                        if next_msg.type != aiohttp.WSMsgType.BINARY:
+                            await ws.send_str(json.dumps({"error": "Expected binary data", "job_id": job_id}))
+                            continue
 
-                if not isinstance(payload, bytes):
-                    await ws.send(json.dumps({"error": "Expected binary data", "job_id": job_id}))
-                    continue
+                        payload = next_msg.data
+                        log(f"  {len(payload):,} bytes — printing...")
+                        try:
+                            send_to_printer(printer_name, payload)
+                            await ws.send_str(json.dumps({"status": "ok", "job_id": job_id}))
+                            log("  Done.")
+                        except Exception as exc:
+                            log(f"  FAILED: {exc}")
+                            await ws.send_str(json.dumps({"error": str(exc), "job_id": job_id}))
 
-                log(f"  {len(payload):,} bytes — printing...", )
-                try:
-                    send_to_printer(printer_name, payload)
-                    await ws.send(json.dumps({"status": "ok", "job_id": job_id}))
-                    log("  Done.")
-                except Exception as exc:
-                    log(f"  FAILED: {exc}")
-                    await ws.send(json.dumps({"error": str(exc), "job_id": job_id}))
+                elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                    raise Exception(f"WebSocket closed: {msg.data}")
 
 
 async def main(server_url: str, token: str):
@@ -155,7 +159,6 @@ if __name__ == "__main__":
         print("Error: provide --token YOUR_TOKEN or set LABELFLOW_TOKEN")
         sys.exit(1)
 
-    # Normalize: http → ws, https → wss
     server_url = server_url.replace("https://", "wss://").replace("http://", "ws://")
 
     log("=" * 52)
