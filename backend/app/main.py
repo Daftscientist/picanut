@@ -57,6 +57,22 @@ async def check_auth(request):
     return await auth_middleware(EXCLUDED_AUTH_PATHS)(request)
 
 
+@app.middleware("response")
+async def add_security_headers(request, response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self';"
+    )
+
+
 @app.listener("before_server_start")
 async def setup(app, loop):
     # Per-agent state (keyed by agent_id)
