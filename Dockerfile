@@ -3,8 +3,6 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-ENV VITE_OUT_DIR=dist
-
 COPY frontend/package.json ./
 RUN npm install
 

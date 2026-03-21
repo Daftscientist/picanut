@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { RequireAuth } from './components/guards/RequireAuth';
 import { RequirePlatformAdmin } from './components/guards/RequirePlatformAdmin';
 
@@ -11,7 +11,8 @@ import Pricing from './pages/Pricing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
-import CompanyLayout from './layouts/CompanyLayout';
+import SidebarLayout from './layouts/SidebarLayout';
+import OverlapLayout from './layouts/OverlapLayout';
 import Dashboard from './pages/Dashboard';
 import PrintLabel from './pages/PrintLabel';
 import PrintQueue from './pages/PrintQueue';
@@ -19,12 +20,25 @@ import Orders from './pages/Orders';
 import Products from './pages/Products';
 import Agents from './pages/Agents';
 import Team from './pages/Team';
+import LabelDesigner from './pages/LabelDesigner';
 
-import AdminLayout from './layouts/AdminLayout';
 import AdminPlans from './pages/AdminPlans';
 import AdminOrgs from './pages/AdminOrgs';
 
 import './index.css';
+
+const LayoutSwitcher = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Managers and Platform Admins get the SidebarLayout
+  if (user.role === 'manager' || user.is_platform_admin) {
+    return <SidebarLayout />;
+  }
+
+  // Subusers (Employees) get the OverlapLayout
+  return <OverlapLayout />;
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -37,8 +51,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 
-          {/* App Routes (Company) */}
-          <Route path="/app" element={<RequireAuth><CompanyLayout /></RequireAuth>}>
+          {/* App Routes (Role-based Layout) */}
+          <Route path="/app" element={<RequireAuth><LayoutSwitcher /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="print" element={<PrintLabel />} />
             <Route path="print-queue" element={<PrintQueue />} />
@@ -46,10 +60,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="products" element={<Products />} />
             <Route path="agents" element={<Agents />} />
             <Route path="team" element={<Team />} />
+            <Route path="designer" element={<LabelDesigner />} />
           </Route>
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<RequireAuth><RequirePlatformAdmin><AdminLayout /></RequirePlatformAdmin></RequireAuth>}>
+          {/* Admin Routes (Shared SidebarLayout for consistent admin experience) */}
+          <Route path="/admin" element={<RequireAuth><RequirePlatformAdmin><SidebarLayout /></RequirePlatformAdmin></RequireAuth>}>
             <Route index element={<Navigate to="/admin/plans" replace />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="orgs" element={<AdminOrgs />} />
