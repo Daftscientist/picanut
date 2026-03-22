@@ -3523,19 +3523,20 @@ img {
 }
 
 /* List & Table Row Actions */
-.mock-list-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.mock-list-row__actions,
-.mock-list-row__chips {
+.mock-list-row__actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.mock-list-row--clickable {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.mock-list-row--clickable:hover {
+  background-color: rgba(0, 53, 31, 0.02);
 }
 
 .mock-table-row--clickable {
@@ -3556,6 +3557,24 @@ img {
 .mock-toolbar-button--danger:hover {
   background: #fee2e2;
   border-color: #fecaca;
+}
+
+/* Code Block (for tokens, code snippets) */
+.mock-code-block {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: #f3f6f7;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #191c1e;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.mock-code-block--small {
+  padding: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .mock-mobile-nav,
