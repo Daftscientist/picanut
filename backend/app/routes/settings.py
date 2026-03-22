@@ -75,6 +75,60 @@ async def create_user(request):
     return sanic_json(result, status=201)
 
 
+@settings_bp.route("/users/<user_id_to_edit>", methods=["PUT"])
+async def update_user(request, user_id_to_edit):
+    err = _require_manager(request)
+    if err:
+        return err
+    
+    current_user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
+    if user_id_to_edit == str(current_user_id):
+        return sanic_json({"error": "Cannot change your own role"}, status=400)
+
+    data = request.json or {}
+    new_role = data.get("role")
+    if new_role not in ("manager", "subuser"):
+        return sanic_json({"error": "Invalid role specified"}, status=400)
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        # Ensure the user being edited is in the same org
+        user_to_edit = await conn.fetchrow("SELECT id FROM users WHERE id=$1 AND org_id=$2", user_id_to_edit, org_id)
+        if not user_to_edit:
+            return sanic_json({"error": "User not found in this organization"}, status=404)
+
+        await conn.execute(
+            "UPDATE users SET role=$1 WHERE id=$2",
+            new_role, user_id_to_edit
+        )
+    return sanic_json({"ok": True})
+
+
+@settings_bp.route("/users/<user_id_to_delete>", methods=["DELETE"])
+async def delete_user(request, user_id_to_delete):
+    err = _require_manager(request)
+    if err:
+        return err
+
+    current_user_id = request.ctx.user["user_id"]
+    org_id = request.ctx.user.get("org_id")
+    if user_id_to_delete == str(current_user_id):
+        return sanic_json({"error": "Cannot delete yourself"}, status=400)
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        # Ensure the user being deleted is in the same org
+        res = await conn.execute("DELETE FROM users WHERE id=$1 AND org_id=$2", user_id_to_delete, org_id)
+    
+    if res == "DELETE 0":
+        return sanic_json({"error": "User not found in this organization"}, status=404)
+        
+    return sanic_json({"ok": True})
+
+
+
+
 @settings_bp.route("/user", methods=["GET"])
 async def get_user_settings(request):
     user = request.ctx.user
