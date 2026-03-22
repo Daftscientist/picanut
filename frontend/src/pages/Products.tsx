@@ -16,8 +16,11 @@ interface Product {
 export default function Products() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [tags, setTags] = useState<{ id: string; name: string; colour: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -31,9 +34,62 @@ export default function Products() {
     }
   };
 
+  const fetchTags = async () => {
+    try {
+      const data = await apiClient.get<{ id: string; name: string; colour: string }[]>('/tags');
+      setTags(data);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to fetch tags');
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchTags();
   }, []);
+
+  const openModal = (product: Product | null = null) => {
+    setSelectedProduct(product);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedProduct(null);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedProduct(null);
+  };
+
+  const handleSave = async (productData: any) => {
+    try {
+      if (selectedProduct) {
+        await apiClient.put(`/products/${selectedProduct.id}`, productData);
+        toast.success('Product updated successfully');
+      } else {
+        await apiClient.post('/products', productData);
+        toast.success('Product created successfully');
+      }
+      fetchProducts();
+      closeModal();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save product');
+    }
+  };
+
+  const handleDelete = async (productId: string) => {
+    if (window.confirm('Are you sure you want to delete this product? This will also delete all its variants.')) {
+      try {
+        await apiClient.delete(`/products/${productId}`);
+        toast.success('Product deleted successfully');
+        fetchProducts();
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to delete product');
+      }
+    }
+  };
 
   const isManager = user?.role === 'manager' || user?.is_platform_admin;
 
@@ -53,7 +109,7 @@ export default function Products() {
                   Refresh
                 </button>
                 {isManager ? (
-                  <button type="button" className="mock-action-solid">
+                  <button type="button" className="mock-action-solid" onClick={() => openModal()}>
                     <Plus size={14} />
                     Add Product
                   </button>
@@ -107,6 +163,7 @@ export default function Products() {
                       <th>Brand</th>
                       <th>Tags</th>
                       <th>Variants</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -136,6 +193,12 @@ export default function Products() {
                         <td>
                           <strong>{product.variant_count}</strong>
                           <p>Printable variants</p>
+                        </td>
+                        <td>
+                          <div className="mock-list-row__actions">
+                              <button type="button" className="mock-toolbar-button" onClick={() => openModal(product)}>Edit</button>
+                              <button type="button" className="mock-toolbar-button mock-toolbar-button--danger" onClick={() => handleDelete(product.id)}>Delete</button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -179,6 +242,104 @@ export default function Products() {
             </div>
           </section>
         </aside>
+      </div>
+
+      {isModalOpen && (
+        <ProductForm
+          product={selectedProduct}
+          availableTags={tags}
+          onSave={handleSave}
+          onClose={closeModal}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Sub-component for the Product Form ───────────────────────────────────────
+
+interface ProductFormProps {
+  product: Product | null;
+  availableTags: { id: string; name: string; colour: string }[];
+  onSave: (productData: any) => void;
+  onClose: () => void;
+}
+
+function ProductForm({ product, availableTags, onSave, onClose }: ProductFormProps) {
+  const [formData, setFormData] = useState({
+    name: product?.name || '',
+    brand: product?.brand || '',
+    description: product?.description || '',
+    tag_ids: product?.tags.map(t => t.id) || [],
+  });
+
+  const handleTagChange = (tagId: string) => {
+    setFormData(prev => {
+      const newTagIds = prev.tag_ids.includes(tagId)
+        ? prev.tag_ids.filter(id => id !== tagId)
+        : [...prev.tag_ids, tagId];
+      return { ...prev, tag_ids: newTagIds };
+    });
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="mock-modal-overlay">
+      <div className="mock-modal" style={{ maxWidth: '600px' }}>
+        <div className="mock-modal__header">
+          <h2>{product ? 'Edit Product' : 'Create Product'}</h2>
+          <p>Define the core product details and assign tags.</p>
+        </div>
+        <form onSubmit={handleSubmit} className="mock-modal__body">
+          <div className="mock-form-group">
+            <label htmlFor="name">Product Name</label>
+            <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required />
+          </div>
+          <div className="mock-form-group">
+            <label htmlFor="brand">Brand</label>
+            <input type="text" id="brand" name="brand" value={formData.brand} onChange={handleChange} />
+          </div>
+          <div className="mock-form-group">
+            <label htmlFor="description">Description</label>
+            <textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3}></textarea>
+          </div>
+
+          <div className="mock-form-group">
+            <label>Tags</label>
+            <div className="mock-checkbox-grid">
+              {availableTags.map(tag => (
+                <div key={tag.id} className="mock-checkbox-item">
+                  <input
+                    type="checkbox"
+                    id={`tag-${tag.id}`}
+                    name="tag_ids"
+                    value={tag.id}
+                    checked={formData.tag_ids.includes(tag.id)}
+                    onChange={() => handleTagChange(tag.id)}
+                  />
+                  <label htmlFor={`tag-${tag.id}`} style={{ background: `${tag.colour}22`, color: tag.colour, borderColor: tag.colour }}>{tag.name}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mock-modal__footer">
+            <button type="button" className="mock-toolbar-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="mock-action-solid">Save Product</button>
+          </div>
+        </form>
       </div>
     </div>
   );
