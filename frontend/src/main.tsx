@@ -27,6 +27,7 @@ import Support from './pages/Support';
 
 import AdminPlans from './pages/AdminPlans';
 import AdminOrgs from './pages/AdminOrgs';
+import AdminVouchers from './pages/AdminVouchers';
 
 import './index.css';
 
@@ -74,6 +75,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route index element={<Navigate to="/admin/plans" replace />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="orgs" element={<AdminOrgs />} />
+            <Route path="vouchers" element={<AdminVouchers />} />
           </Route>
 
           {/* Catch-all */}

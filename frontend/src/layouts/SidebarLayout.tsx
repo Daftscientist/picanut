@@ -30,6 +30,7 @@ export default function SidebarLayout() {
     ? [
         { label: 'Overview', path: '/admin/plans', icon: 'monitoring' },
         { label: 'Organizations', path: '/admin/orgs', icon: 'apartment' },
+        { label: 'Vouchers', path: '/admin/vouchers', icon: 'loyalty' },
       ]
     : [
         { label: 'Overview', path: '/app', icon: 'space_dashboard' },
@@ -53,6 +54,7 @@ export default function SidebarLayout() {
     ? [
         { label: 'Plans', path: '/admin/plans' },
         { label: 'Organizations', path: '/admin/orgs' },
+        { label: 'Vouchers', path: '/admin/vouchers' },
       ]
     : [
         { label: 'Overview', path: '/app' },
