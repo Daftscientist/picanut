@@ -27,9 +27,36 @@ interface BillingStatus {
   };
 }
 
+interface PaymentMethod {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+}
+
+interface Invoice {
+  id: string;
+  amount_due: number;
+  currency: string;
+  status: string;
+  invoice_pdf: string | null;
+  created: number; // Unix timestamp
+}
+
+interface CustomerDetails {
+  default_payment_method: PaymentMethod | null;
+  upcoming_invoice: {
+    amount_due: number;
+    currency: string;
+    next_payment_attempt: number; // Unix timestamp
+  } | null;
+  recent_invoices: Invoice[];
+}
+
 export default function Billing() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -37,12 +64,14 @@ export default function Billing() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [planData, billingData] = await Promise.all([
+      const [planData, billingData, customerDetailsData] = await Promise.all([
         apiClient.get<Plan[]>('/billing/plans'),
         apiClient.get<BillingStatus>('/billing/status'),
+        apiClient.get<CustomerDetails>('/billing/customer-details'),
       ]);
       setPlans(planData);
       setBilling(billingData);
+      setCustomerDetails(customerDetailsData);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load billing');
     } finally {
@@ -192,6 +221,67 @@ export default function Billing() {
                 <strong>Current period end</strong>
                 <span>{billing?.current_period_end ? new Date(billing.current_period_end).toLocaleString() : 'Not available'}</span>
               </div>
+            </div>
+          </section>
+
+          <section className="mock-rail-card">
+            <div className="mock-rail-card__header">
+              <strong>Payment Method</strong>
+            </div>
+            <div className="mock-meta-list">
+              {customerDetails?.default_payment_method ? (
+                <div>
+                  <strong>{customerDetails.default_payment_method.brand} ending in {customerDetails.default_payment_method.last4}</strong>
+                  <span>Expires {customerDetails.default_payment_method.exp_month}/{customerDetails.default_payment_method.exp_year}</span>
+                </div>
+              ) : (
+                <div>
+                  <strong>No payment method on file</strong>
+                  <span>Add a payment method via the billing portal.</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="mock-rail-card">
+            <div className="mock-rail-card__header">
+              <strong>Upcoming Invoice</strong>
+            </div>
+            <div className="mock-meta-list">
+              {customerDetails?.upcoming_invoice ? (
+                <div>
+                  <strong>
+                    {(customerDetails.upcoming_invoice.amount_due / 100).toFixed(2)} {customerDetails.upcoming_invoice.currency.toUpperCase()}
+                  </strong>
+                  <span>Due {new Date(customerDetails.upcoming_invoice.next_payment_attempt * 1000).toLocaleDateString()}</span>
+                </div>
+              ) : (
+                <div>
+                  <strong>No upcoming invoice</strong>
+                  <span>Your next invoice details will appear here.</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="mock-rail-card">
+            <div className="mock-rail-card__header">
+              <strong>Recent Invoices</strong>
+            </div>
+            <div className="mock-meta-list">
+              {customerDetails?.recent_invoices && customerDetails.recent_invoices.length > 0 ? (
+                customerDetails.recent_invoices.map(invoice => (
+                  <div key={invoice.id}>
+                    <strong>{(invoice.amount_due / 100).toFixed(2)} {invoice.currency.toUpperCase()} - {invoice.status}</strong>
+                    <span>{new Date(invoice.created * 1000).toLocaleDateString()} · <a href={invoice.invoice_pdf || '#'} target="_blank" rel="noopener noreferrer">View PDF</a></span>
+                  </div>
+                ))
+              ) : (
+                <div>
+                  <strong>No recent invoices</strong>
+                  <span>Your invoice history will appear here.</span>
+                </div>
+              )}
             </div>
           </section>
         </aside>
