@@ -67,10 +67,10 @@ class ApiClient {
     return this.handleResponse<T>(response);
   }
 
-  async post<T>(path: string, body?: any): Promise<T> {
+  async post<T>(path: string, body?: any, extraHeaders: Record<string, string> = {}): Promise<T> {
     const isBinary = body instanceof Blob || body instanceof ArrayBuffer;
     const headers = this.getHeaders(
-      isBinary ? {} : { 'Content-Type': 'application/json' }
+      isBinary ? extraHeaders : { 'Content-Type': 'application/json', ...extraHeaders }
     );
 
     const response = await fetch(this.baseUrl + path, {
@@ -82,10 +82,10 @@ class ApiClient {
     return this.handleResponse<T>(response);
   }
 
-  async put<T>(path: string, body?: any): Promise<T> {
+  async put<T>(path: string, body?: any, extraHeaders: Record<string, string> = {}): Promise<T> {
     const response = await fetch(this.baseUrl + path, {
       method: 'PUT',
-      headers: this.getHeaders({ 'Content-Type': 'application/json' }),
+      headers: this.getHeaders({ 'Content-Type': 'application/json', ...extraHeaders }),
       body: JSON.stringify(body),
     });
 

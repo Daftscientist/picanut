@@ -64,7 +64,7 @@ export default function PrintLabel() {
 
       // Step 2: Dispatch the raster bytes to the print agent
       // The apiClient is set up to handle Blob as body and will add X-Job-Id header
-      await apiClient.post('/print/dispatch', renderResult.blob, { 'X-Job-Id': renderResult.jobId });
+      await apiClient.post('/api/print/dispatch', renderResult.blob, { 'X-Job-Id': renderResult.jobId });
       
       // Step 3: Confirm the print job
       await apiClient.post(`/print/${renderResult.jobId}/confirm`);
