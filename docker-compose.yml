@@ -2,9 +2,9 @@ services:
   app:
     build: .
     # Bind only to the Tailscale IP — never exposed on the public interface.
-    # Proxy via Nginx Proxy Manager pointing at 100.101.66.103:8000.
+    # Proxy via Nginx Proxy Manager pointing at ${TAILSCALE_IP}:8000.
     ports:
-      - "100.101.66.103:8000:8000"
+      - "${TAILSCALE_IP:?TAILSCALE_IP is required}:8000:8000"
     environment:
       - DATABASE_URL=postgresql://labelflow:labelflow@db:5432/labelflow
       - WOO_WEBHOOK_SECRET=${WOO_WEBHOOK_SECRET:-changeme}

@@ -191,8 +191,18 @@ async def pending_orders(request):
             raw = od.get("raw_json") or {}
             if isinstance(raw, str):
                 raw = json_module.loads(raw)
+            line_items = raw.get("line_items", []) or []
             od["customer_name"] = f"{raw.get('billing', {}).get('first_name', '')} {raw.get('billing', {}).get('last_name', '')}".strip()
             od["order_number"] = raw.get("number") or od["woo_order_id"]
+            od["platform"] = raw.get("created_via") or "WooCommerce"
+            od["items"] = [
+                {
+                    "name": item.get("name", ""),
+                    "sku": item.get("sku", ""),
+                    "quantity": item.get("quantity", 1),
+                }
+                for item in line_items
+            ]
             od["unmatched"] = raw.get("_unmatched", [])
             jobs = await conn.fetch(
                 """SELECT pj.id, pj.quantity, pj.status, pv.sku, p.name as product_name

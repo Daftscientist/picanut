@@ -150,6 +150,37 @@ async def get_organization(request, org_id):
     return sanic_json(d)
 
 
+@admin_bp.route("/organizations", methods=["POST"])
+async def create_organization(request):
+    err = _require_platform_admin(request)
+    if err:
+        return err
+    data = request.json or {}
+    name = data.get("name")
+    slug = data.get("slug")
+    if not name or not slug:
+        return sanic_json({"error": "Name and slug are required"}, status=400)
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO organizations (name, slug)
+                   VALUES ($1, $2) RETURNING *""",
+                name, slug
+            )
+            result = dict(row)
+            result["created_at"] = result["created_at"].isoformat()
+            # Manually add counts which are normally added in the LIST query
+            result["user_count"] = 0
+            result["agent_count"] = 0
+            result["plan_name"] = None
+            return sanic_json(result, status=201)
+        except Exception as e:
+            # Likely a unique constraint violation on the slug
+            return sanic_json({"error": f"Failed to create organization: {e}"}, status=500)
+
+
 @admin_bp.route("/organizations/<org_id>", methods=["PUT"])
 async def update_organization(request, org_id):
     err = _require_platform_admin(request)
@@ -160,11 +191,28 @@ async def update_organization(request, org_id):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """UPDATE organizations SET
-               plan_id=COALESCE($1::uuid, plan_id),
-               subscription_status=COALESCE(NULLIF($2,''), subscription_status)
-               WHERE id=$3 RETURNING id, name, slug, subscription_status""",
+               name=COALESCE(NULLIF($1,''), name),
+               slug=COALESCE(NULLIF($2,''), slug),
+               plan_id=COALESCE($3::uuid, plan_id),
+               subscription_status=COALESCE(NULLIF($4,''), subscription_status)
+               WHERE id=$5 RETURNING id, name, slug, subscription_status""",
+            data.get("name"), data.get("slug"),
             data.get("plan_id"), data.get("subscription_status"), org_id,
         )
     if not row:
         return sanic_json({"error": "Not found"}, status=404)
     return sanic_json(dict(row))
+
+
+@admin_bp.route("/organizations/<org_id>", methods=["DELETE"])
+async def delete_organization(request, org_id):
+    err = _require_platform_admin(request)
+    if err:
+        return err
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        res = await conn.execute("DELETE FROM organizations WHERE id=$1", org_id)
+    if res == "DELETE 0":
+        return sanic_json({"error": "Not found"}, status=404)
+    return sanic_json({"ok": True})
+

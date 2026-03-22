@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, LockKeyhole, Printer, UserRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
@@ -30,51 +31,81 @@ export default function Login() {
   };
 
   return (
-    <div className="page page-center">
-      <div className="container container-tight py-4">
-        <div className="text-center mb-4">
-          <Link to="/" className="navbar-brand navbar-brand-autodark">
-            <span className="fs-1 fw-bold">LabelFlow</span>
-          </Link>
+    <div className="auth-shell">
+      <div className="auth-shell__panel auth-shell__panel--brand">
+        <Link to="/" className="brand-mark brand-mark--light">
+          <span className="brand-mark__icon">
+            <Printer size={18} />
+          </span>
+          <span>
+            <strong>Canopy</strong>
+            <small>digital arboretum</small>
+          </span>
+        </Link>
+
+        <div className="auth-shell__copy">
+          <p className="canopy-label canopy-label--inverse">Welcome back</p>
+          <h1>Return to the operational canopy.</h1>
+          <p>
+            Sign in to manage products, monitor queues, and keep label fulfillment moving with the same calm, layered
+            workspace.
+          </p>
         </div>
-        <div className="card card-md border-0 shadow-lg">
-          <div className="card-body">
-            <h2 className="h2 text-center mb-4">Login to your account</h2>
-            <form onSubmit={handleSubmit} autoComplete="off">
-              <div className="mb-3">
-                <label className="form-label">Username</label>
+
+        <div className="auth-shell__summary canopy-glass canopy-glass--dark">
+          <div>
+            <span>Orders, products, print flow</span>
+            <strong>One focused workspace</strong>
+          </div>
+          <ArrowRight size={16} />
+        </div>
+      </div>
+
+      <div className="auth-shell__panel auth-shell__panel--form">
+        <div className="auth-card canopy-panel">
+          <div className="auth-card__header">
+            <p className="canopy-label">Sign in</p>
+            <h2>Access your workspace</h2>
+            <p>Use your existing account credentials to continue into the app.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} autoComplete="off" className="auth-form">
+            <label className="canopy-field">
+              <span>Username</span>
+              <div className="canopy-input-wrap">
+                <UserRound size={16} />
                 <input
                   type="text"
-                  className="form-control"
                   placeholder="admin"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
               </div>
-              <div className="mb-2">
-                <label className="form-label">
-                  Password
-                </label>
+            </label>
+
+            <label className="canopy-field">
+              <span>Password</span>
+              <div className="canopy-input-wrap">
+                <LockKeyhole size={16} />
                 <input
                   type="password"
-                  className="form-control"
                   placeholder="admin"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
-              <div className="form-footer mt-4">
-                <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-                  {loading ? 'Logging in...' : 'Log in'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div className="text-center text-muted mt-3">
-          Don't have an account yet? <Link to="/signup">Sign up</Link>
+            </label>
+
+            <button type="submit" className="canopy-button canopy-button--primary canopy-button--large auth-form__submit" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
+
+          <p className="auth-card__footer">
+            Need an account? <Link to="/signup">Create one here</Link>
+          </p>
         </div>
       </div>
     </div>

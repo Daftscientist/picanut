@@ -1,259 +1,230 @@
 import { Link } from 'react-router-dom';
 import {
-  Printer,
-  Zap,
-  Layout,
-  Shield,
   ArrowRight,
-  CheckCircle2,
-  Smartphone,
   BarChart3,
-  PenTool
+  CheckCircle2,
+  Layers3,
+  Printer,
+  ScanLine,
+  ShieldCheck,
+  Sparkles,
+  Workflow,
 } from 'lucide-react';
-import { clsx } from 'clsx';
+
+const featureCards = [
+  {
+    icon: Workflow,
+    eyebrow: 'Order Flow',
+    title: 'Move from intake to print without friction.',
+    body: 'WooCommerce orders, product variants, and print actions stay in one operational canopy instead of scattered tabs.',
+  },
+  {
+    icon: ScanLine,
+    eyebrow: 'Floor Speed',
+    title: 'Built for motion, not back-office lag.',
+    body: 'Fast lookups, large hit areas, and mobile-friendly flows keep warehouse and storefront teams in sync.',
+  },
+  {
+    icon: ShieldCheck,
+    eyebrow: 'Control',
+    title: 'Permission-aware by design.',
+    body: 'Managers, sub-users, and platform admins each get a clearer, calmer workspace matched to their responsibility.',
+  },
+];
+
+const signals = [
+  { value: '99.9%', label: 'service uptime' },
+  { value: '<2 min', label: 'typical label prep loop' },
+  { value: 'multi-role', label: 'teams supported natively' },
+];
 
 export default function Landing() {
   return (
-    <div className="page bg-white">
-      {/* Header */}
-      <header className="navbar navbar-expand-md navbar-light bg-white border-bottom sticky-top py-3">
-        <div className="container-xl">
-          <Link to="/" className="navbar-brand d-flex align-items-center gap-2">
-            <div className="bg-primary p-2 rounded text-white shadow-sm d-flex">
-              <Printer size={20} />
-            </div>
-            <span className="fw-bold tracking-tight h3 mb-0">LabelFlow</span>
+    <div className="marketing-shell">
+      <div className="marketing-atmosphere" />
+
+      <header className="marketing-nav canopy-glass">
+        <Link to="/" className="brand-mark">
+          <span className="brand-mark__icon">
+            <Printer size={18} />
+          </span>
+          <span>
+            <strong>Canopy</strong>
+            <small>order fulfillment</small>
+          </span>
+        </Link>
+
+        <nav className="marketing-nav__links">
+          <a href="#capabilities">Capabilities</a>
+          <Link to="/pricing">Pricing</Link>
+          <Link to="/login">Login</Link>
+          <Link to="/signup" className="canopy-button canopy-button--primary">
+            Start free trial
           </Link>
-          <div className="navbar-nav flex-row order-md-last ms-auto align-items-center">
-            <div className="nav-item d-none d-sm-block">
-              <Link to="/login" className="nav-link fw-medium px-3">Log in</Link>
-            </div>
-            <div className="nav-item">
-              <Link to="/signup" className="btn btn-primary rounded-pill px-4 shadow-sm fw-bold">
-                Get Started <ArrowRight size={16} className="ms-2" />
-              </Link>
-            </div>
-          </div>
-        </div>
+        </nav>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-6 py-lg-8 bg-gradient-to-b from-blue-50 to-white overflow-hidden">
-        <div className="container-xl">
-          <div className="row align-items-center g-5">
-            <div className="col-lg-6 text-center text-lg-start">
-              <div className="badge bg-primary-lt px-3 py-2 rounded-pill mb-3 fw-bold animate-pulse">
-                NEW: Label Designer 2.0 is here!
-              </div>
-              <h1 className="display-3 fw-black tracking-tight mb-4 text-dark">
-                Modern Printing for <span className="text-primary">Modern Commerce.</span>
-              </h1>
-              <p className="lead text-muted mb-5 pe-lg-5">
-                The fastest, most reliable way to manage products, variants, and WooCommerce orders with direct-to-printer thermal label support. Built for scale.
-              </p>
-              <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
-                <Link to="/signup" className="btn btn-primary btn-lg rounded-pill px-5 py-3 shadow-lg fw-bold">
-                  Start Free Trial
-                </Link>
-                <Link to="/pricing" className="btn btn-outline-dark btn-lg rounded-pill px-5 py-3 fw-bold">
-                  View Pricing
-                </Link>
-              </div>
-              <div className="mt-5 d-flex align-items-center justify-content-center justify-content-lg-start gap-4 text-muted small fw-medium">
-                <div className="d-flex align-items-center gap-1"><CheckCircle2 size={16} className="text-green" /> No credit card required</div>
-                <div className="d-flex align-items-center gap-1"><CheckCircle2 size={16} className="text-green" /> Cancel anytime</div>
-              </div>
+      <main className="marketing-main">
+        <section className="marketing-hero">
+          <div className="marketing-hero__copy">
+            <div className="canopy-chip">
+              <Sparkles size={14} />
+              The digital arboretum for modern fulfillment teams
             </div>
-            <div className="col-lg-6">
-              <div className="position-relative">
-                <div className="bg-primary opacity-10 position-absolute rounded-circle blur-3xl" style={{ width: '400px', height: '400px', top: '-50px', right: '-50px', zIndex: -1 }}></div>
-                <div className="card shadow-2xl border-0 rounded-4 overflow-hidden transform hover-scale-105 transition-all">
-                  <img
-                    src="/assets/hero.png"
-                    alt="Dashboard Preview"
-                    className="img-fluid"
-                    style={{ minHeight: '300px', objectFit: 'cover' }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=2000';
-                    }}
-                  />
-                  <div className="card-img-overlay d-flex align-items-end p-4 bg-gradient-to-t from-dark to-transparent">
-                     <div className="text-white">
-                        <div className="fw-bold mb-1">Intuitive Dashboard</div>
-                        <div className="small opacity-75">Manage your entire warehouse from a single view.</div>
-                     </div>
-                  </div>
+
+            <h1 className="marketing-hero__title">
+              Fulfillment at the speed of instinct, with the calm of a well-designed system.
+            </h1>
+
+            <p className="marketing-hero__body">
+              Canopy unifies products, orders, print queues, and local label output into a single operational surface. It
+              trades clutter for rhythm: fewer dividers, clearer layers, faster action.
+            </p>
+
+            <div className="marketing-hero__actions">
+              <Link to="/signup" className="canopy-button canopy-button--primary canopy-button--large">
+                Start free trial
+                <ArrowRight size={16} />
+              </Link>
+              <Link to="/pricing" className="canopy-button canopy-button--secondary canopy-button--large">
+                View plans
+              </Link>
+            </div>
+
+            <div className="marketing-signals">
+              {signals.map((signal) => (
+                <div key={signal.label} className="marketing-signal canopy-panel canopy-panel--soft">
+                  <span>{signal.value}</span>
+                  <small>{signal.label}</small>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="marketing-hero__visual">
+            <div className="marketing-orb marketing-orb--one" />
+            <div className="marketing-orb marketing-orb--two" />
+
+            <div className="dashboard-preview canopy-panel">
+              <div className="dashboard-preview__top">
+                <div>
+                  <p className="canopy-label">Operations canopy</p>
+                  <h2>Clear decisions, fast print flow.</h2>
+                </div>
+                <div className="canopy-chip canopy-chip--quiet">
+                  <CheckCircle2 size={14} />
+                  Auto-print online
+                </div>
+              </div>
+
+              <div className="dashboard-preview__grid">
+                <article className="canopy-panel canopy-panel--soft">
+                  <p className="canopy-label">Today</p>
+                  <strong>248 labels sent</strong>
+                  <span>Across store, returns, and warehouse batches.</span>
+                </article>
+                <article className="canopy-panel canopy-panel--soft">
+                  <p className="canopy-label">Queue</p>
+                  <strong>12 pending orders</strong>
+                  <span>Ready for pick, print, and handoff.</span>
+                </article>
+              </div>
+
+              <div className="dashboard-preview__feed canopy-panel canopy-panel--inset">
+                <div className="dashboard-preview__feed-head">
+                  <div>
+                    <p className="canopy-label">Live stream</p>
+                    <h3>Fulfillment feed</h3>
+                  </div>
+                  <span className="canopy-chip canopy-chip--quiet">stable sync</span>
+                </div>
+
+                {[
+                  ['CP-9821', '4x Standard Shelf Labels', 'auto-printed'],
+                  ['CP-9820', '12x Thermal Paper Rolls', 'pending'],
+                  ['CP-9819', '2x Eco Packaging Tape', 'fulfilled'],
+                ].map(([order, item, status]) => (
+                  <div key={order} className="dashboard-preview__row">
+                    <div>
+                      <strong>#{order}</strong>
+                      <span>{item}</span>
+                    </div>
+                    <em>{status}</em>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Grid */}
-      <section className="py-8 bg-light">
-        <div className="container-xl">
-          <div className="text-center mb-8">
-            <h2 className="display-5 fw-bold mb-3">Everything you need to <span className="text-primary">scale.</span></h2>
-            <p className="text-muted lead mx-auto" style={{ maxWidth: '600px' }}>
-              We've built the most comprehensive toolset for high-volume printing operations.
+        <section id="capabilities" className="marketing-section">
+          <div className="marketing-section__header">
+            <p className="canopy-label">Capabilities</p>
+            <h2>Operational software shaped like an instrument, not a spreadsheet.</h2>
+            <p>
+              Every surface is designed around tonal hierarchy, editorial spacing, and high-confidence actions for teams
+              working under time pressure.
             </p>
           </div>
 
-          <div className="row g-4">
-            {[
-              {
-                icon: Zap,
-                title: 'Lightning Fast',
-                color: 'text-yellow',
-                desc: 'Render and print labels in milliseconds. Zero wait time between orders even at high volume.'
-              },
-              {
-                icon: Layout,
-                title: 'WooCommerce Sync',
-                color: 'text-blue',
-                desc: 'Orders flow in automatically. Print entire batches with a single click or automate the entire flow.'
-              },
-              {
-                icon: Shield,
-                title: 'Enterprise RBAC',
-                color: 'text-green',
-                desc: 'Granular permissions for Managers and Sub-users. Keep your operations secure and audited.'
-              },
-              {
-                icon: PenTool,
-                title: 'Label Designer',
-                color: 'text-red',
-                desc: 'Create custom labels in minutes with our intuitive drag-and-drop editor. No coding required.'
-              },
-              {
-                icon: Smartphone,
-                title: 'Mobile First',
-                color: 'text-purple',
-                desc: 'Manage your print queue and orders from any device. Perfect for warehouse floor staff.'
-              },
-              {
-                icon: BarChart3,
-                title: 'Usage Insights',
-                color: 'text-azure',
-                desc: 'Track your printing volume and efficiency with real-time analytics and reporting.'
-              }
-            ].map((f, i) => (
-              <div key={i} className="col-md-6 col-lg-4">
-                <div className="card h-100 border-0 shadow-sm rounded-4 hover-shadow-lg transition-all p-2">
-                  <div className="card-body">
-                    <div className={clsx("mb-4 bg-opacity-10 p-3 rounded-4 d-inline-flex", f.color.replace('text', 'bg'))}>
-                      <f.icon className={f.color} size={32} />
-                    </div>
-                    <h4 className="fw-bold mb-3">{f.title}</h4>
-                    <p className="text-muted mb-0">{f.desc}</p>
-                  </div>
+          <div className="marketing-feature-grid">
+            {featureCards.map((card) => (
+              <article key={card.title} className="canopy-panel marketing-feature">
+                <div className="marketing-feature__icon">
+                  <card.icon size={18} />
                 </div>
-              </div>
+                <p className="canopy-label">{card.eyebrow}</p>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+              </article>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Stats Section */}
-      <section className="py-8 bg-primary text-white overflow-hidden position-relative">
-        <div className="container-xl position-relative" style={{ zIndex: 1 }}>
-          <div className="row text-center g-4">
-            <div className="col-6 col-md-3">
-              <div className="display-5 fw-black mb-1">50M+</div>
-              <div className="text-white opacity-75 small text-uppercase fw-bold ls-wider">Labels Printed</div>
-            </div>
-            <div className="col-6 col-md-3">
-              <div className="display-5 fw-black mb-1">10k+</div>
-              <div className="text-white opacity-75 small text-uppercase fw-bold ls-wider">Active Users</div>
-            </div>
-            <div className="col-6 col-md-3">
-              <div className="display-5 fw-black mb-1">99.9%</div>
-              <div className="text-white opacity-75 small text-uppercase fw-bold ls-wider">Uptime</div>
-            </div>
-            <div className="col-6 col-md-3">
-              <div className="display-5 fw-black mb-1">24/7</div>
-              <div className="text-white opacity-75 small text-uppercase fw-bold ls-wider">Expert Support</div>
-            </div>
+        <section className="marketing-band">
+          <div className="marketing-band__copy">
+            <p className="canopy-label">Why teams switch</p>
+            <h2>More signal. Less visual friction.</h2>
+            <p>
+              The canopy system replaces hard dividers and generic admin chrome with layered surfaces, floating controls,
+              and calm navigation islands that keep dense workflows readable.
+            </p>
           </div>
-        </div>
-        <div className="position-absolute top-0 start-0 w-100 h-100 opacity-10 pointer-events-none" style={{ background: 'radial-gradient(circle at 20% 50%, white, transparent 25%), radial-gradient(circle at 80% 80%, white, transparent 25%)' }}></div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-8">
-        <div className="container-xl">
-          <div className="card bg-dark text-white rounded-5 border-0 shadow-2xl overflow-hidden p-4 p-lg-6">
-            <div className="row align-items-center">
-              <div className="col-lg-7 text-center text-lg-start mb-4 mb-lg-0">
-                <h2 className="display-4 fw-bold mb-3">Ready to transform your <span className="text-primary">workflow?</span></h2>
-                <p className="lead opacity-75 mb-0">Join thousands of businesses already scaling with LabelFlow.</p>
-              </div>
-              <div className="col-lg-5 text-center text-lg-end">
-                <Link to="/signup" className="btn btn-primary btn-lg rounded-pill px-5 py-3 fw-bold shadow-lg transform hover-scale-105 transition-all">
-                  Create Your Account Now
-                </Link>
-              </div>
-            </div>
+          <div className="marketing-band__stats">
+            <article className="canopy-panel canopy-panel--soft">
+              <BarChart3 size={18} />
+              <strong>Usage-aware dashboards</strong>
+              <span>Quota, queue pressure, and agent status stay visible without overwhelming the eye.</span>
+            </article>
+            <article className="canopy-panel canopy-panel--soft">
+              <Layers3 size={18} />
+              <strong>Tonal layering</strong>
+              <span>Cards, tools, and contextual regions are separated by surfaces and depth, not boxed borders.</span>
+            </article>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Footer */}
-      <footer className="py-6 border-top bg-light">
-        <div className="container-xl">
-          <div className="row g-4">
-            <div className="col-lg-4">
-              <Link to="/" className="d-flex align-items-center gap-2 text-decoration-none mb-4">
-                <Printer size={24} className="text-primary" />
-                <span className="fw-bold tracking-tight h3 mb-0 text-dark">LabelFlow</span>
-              </Link>
-              <p className="text-muted small pr-lg-5">
-                The premier label printing solution for businesses of all sizes. Built with love in London.
-              </p>
-            </div>
-            <div className="col-6 col-lg-2 ms-lg-auto">
-              <h5 className="fw-bold mb-3">Product</h5>
-              <ul className="list-unstyled space-y-2 small">
-                <li><Link to="/pricing" className="text-muted text-decoration-none">Pricing</Link></li>
-                <li><Link to="/app" className="text-muted text-decoration-none">Dashboard</Link></li>
-              </ul>
-            </div>
-            <div className="col-6 col-lg-2">
-              <h5 className="fw-bold mb-3">Company</h5>
-              <ul className="list-unstyled space-y-2 small">
-                <li><a href="#" className="text-muted text-decoration-none">About Us</a></li>
-                <li><a href="#" className="text-muted text-decoration-none">Careers</a></li>
-                <li><a href="#" className="text-muted text-decoration-none">Contact</a></li>
-              </ul>
-            </div>
+        <section className="marketing-cta canopy-panel canopy-panel--hero">
+          <div>
+            <p className="canopy-label canopy-label--inverse">Start here</p>
+            <h2>Grow your label operation inside a calmer, sharper interface.</h2>
+            <p>
+              Create a workspace for your team, connect your printer flow, and move from incoming order to printed label
+              with less friction.
+            </p>
           </div>
-          <div className="mt-5 pt-5 border-top d-flex flex-column flex-md-row align-items-center justify-content-between text-muted small">
-            <div>&copy; {new Date().getFullYear()} LabelFlow Inc. All rights reserved.</div>
-            <div className="d-flex gap-4 mt-3 mt-md-0">
-               <a href="#" className="text-muted text-decoration-none">Privacy Policy</a>
-               <a href="#" className="text-muted text-decoration-none">Terms of Service</a>
-            </div>
-          </div>
-        </div>
-      </footer>
 
-      <style>{`
-        .fw-black { font-weight: 900; }
-        .tracking-tight { letter-spacing: -0.025em; }
-        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-        .rounded-4 { border-radius: 1.5rem !important; }
-        .rounded-5 { border-radius: 2.5rem !important; }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        .hover-scale-105:hover { transform: scale(1.05); }
-        .ls-wider { letter-spacing: 0.1em; }
-        .bg-gradient-to-b { background: linear-gradient(to bottom, var(--tw-gradient-stops)); }
-        .from-blue-50 { --tw-gradient-from: #eff6ff; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(239, 246, 255, 0)); }
-        .to-white { --tw-gradient-to: #fff; }
-        .blur-3xl { filter: blur(64px); }
-        .space-y-2 > * + * { margin-top: 0.5rem; }
-      `}</style>
+          <div className="marketing-cta__actions">
+            <Link to="/signup" className="canopy-button canopy-button--light canopy-button--large">
+              Create account
+            </Link>
+            <Link to="/login" className="canopy-button canopy-button--ghost-light canopy-button--large">
+              Sign in
+            </Link>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

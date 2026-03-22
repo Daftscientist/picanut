@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { UserPlus, Shield, User as UserIcon, LogOut, RefreshCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { LogOut, RefreshCcw, UserPlus } from 'lucide-react';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
 
@@ -40,106 +40,92 @@ export default function Team() {
   };
 
   return (
-    <>
-      <div className="page-header d-print-none text-white">
-        <div className="container-xl">
-          <div className="row g-2 align-items-center">
-            <div className="col">
-              <h2 className="page-title">Team Management</h2>
-              <div className="text-muted mt-1">Manage user accounts and organization security</div>
-            </div>
-            <div className="col-auto ms-auto d-print-none">
-              <div className="btn-list">
-                <button onClick={fetchMembers} className="btn btn-ghost-light">
-                  <RefreshCcw size={18} className="me-2" />
+    <div className="mock-page">
+      <div className="mock-page__grid">
+        <div className="mock-page__main">
+          <section className="mock-feed-card">
+            <div className="mock-feed-card__header">
+              <div>
+                <h2>People and Permissions</h2>
+                <p>Manage the team and keep session hygiene under control without leaving the standard app layout.</p>
+              </div>
+              <div className="mock-toolbar">
+                <button type="button" onClick={fetchMembers} className="mock-toolbar-button">
+                  <RefreshCcw size={15} />
                   Refresh
                 </button>
-                <button className="btn btn-primary d-none d-sm-inline-block">
-                  <UserPlus size={18} className="me-2" />
-                  Invite user
+                <button type="button" className="mock-action-solid">
+                  <UserPlus size={14} />
+                  Invite User
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="page-body">
-        <div className="container-xl">
-          <div className="row row-cards">
-            <div className="col-md-8">
-              <div className="card shadow-sm border-0">
-                <div className="table-responsive">
-                  <table className="table table-vcenter table-mobile-md card-table">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th className="w-1"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr><td colSpan={4} className="text-center py-4">Loading...</td></tr>
-                      ) : members.length === 0 ? (
-                        <tr><td colSpan={4} className="text-center py-4 text-muted">No members found.</td></tr>
-                      ) : (
-                        members.map(member => (
-                          <tr key={member.id}>
-                            <td data-label="Username">
-                              <div className="d-flex py-1 align-items-center">
-                                <span className="avatar me-2 avatar-sm bg-blue-lt">
-                                  <UserIcon size={14} />
-                                </span>
-                                <div className="flex-fill">
-                                  <div className="font-weight-medium">{member.username}</div>
-                                  <div className="text-muted small">ID: {member.id.slice(0, 8)}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td data-label="Role">
-                              {member.role === 'manager' ? (
-                                <span className="badge bg-blue-lt d-flex align-items-center gap-1 w-fit">
-                                  <Shield size={12} /> Manager
-                                </span>
-                              ) : (
-                                <span className="badge bg-green-lt">Staff</span>
-                              )}
-                            </td>
-                            <td data-label="Status">
-                              <span className="badge bg-success">Active</span>
-                            </td>
-                            <td>
-                              <div className="btn-list flex-nowrap">
-                                <button className="btn btn-ghost-danger btn-sm">Revoke</button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             </div>
 
-            <div className="col-md-4">
-              <div className="card shadow-sm border-0 bg-transparent">
-                <div className="card-body bg-white rounded shadow-sm mb-3">
-                  <h3 className="card-title">Security Actions</h3>
-                  <div className="mb-3 text-muted small">
-                    Force a logout for all active sessions on this account (excluding the current one).
-                  </div>
-                  <button onClick={handleRevokeSessions} className="btn btn-outline-danger w-100">
-                    <LogOut size={16} className="me-2" />
-                    Revoke other sessions
-                  </button>
-                </div>
+            {loading ? (
+              <div className="mock-empty-state">
+                <strong>Loading organization members</strong>
+                <p>Fetching the current role matrix and session state.</p>
+              </div>
+            ) : members.length === 0 ? (
+              <div className="mock-empty-state">
+                <strong>No team members yet</strong>
+                <p>Invite users to create a shared operational workspace for this organization.</p>
+              </div>
+            ) : (
+              <div className="mock-table-wrap">
+                <table className="mock-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th>Session</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((member) => (
+                      <tr key={member.id}>
+                        <td>
+                          <strong>{member.username}</strong>
+                          <p>ID {member.id.slice(0, 8)}</p>
+                        </td>
+                        <td>
+                          <span className={member.role === 'manager' ? 'mock-status mock-status--success' : 'mock-status mock-status--neutral'}>
+                            {member.role === 'manager' ? 'Manager' : 'Sub-user'}
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{member.last_seen_at ? new Date(member.last_seen_at).toLocaleDateString() : 'No recent activity'}</strong>
+                          <p>{member.last_seen_at ? new Date(member.last_seen_at).toLocaleTimeString() : 'Awaiting first session'}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <aside className="mock-page__rail">
+          <section className="mock-rail-card">
+            <div className="mock-rail-card__header">
+              <strong>Session Controls</strong>
+            </div>
+            <div className="mock-meta-list">
+              <div>
+                <strong>Global session reset</strong>
+                <span>Signs out every session except the one you are using now.</span>
               </div>
             </div>
-          </div>
-        </div>
+            <div style={{ marginTop: '1rem' }}>
+              <button type="button" onClick={handleRevokeSessions} className="mock-toolbar-button">
+                <LogOut size={15} />
+                Revoke Other Sessions
+              </button>
+            </div>
+          </section>
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

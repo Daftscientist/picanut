@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Building2, RefreshCcw, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { RefreshCcw } from 'lucide-react';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
 
@@ -17,6 +17,8 @@ interface Org {
 export default function AdminOrgs() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
 
   const fetchOrgs = async () => {
     try {
@@ -33,91 +35,182 @@ export default function AdminOrgs() {
     fetchOrgs();
   }, []);
 
+  const openModal = (org: Org | null = null) => {
+    setSelectedOrg(org);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedOrg(null);
+  };
+
+  const handleSave = async (orgData: Partial<Org>) => {
+    try {
+      if (selectedOrg) {
+        await apiClient.put(`/admin/organizations/${selectedOrg.id}`, orgData);
+        toast.success('Organization updated successfully');
+      } else {
+        await apiClient.post('/admin/organizations', orgData);
+        toast.success('Organization created successfully');
+      }
+      fetchOrgs();
+      closeModal();
+    } catch (err: any)      toast.error(err.message || 'Failed to save organization');
+    }
+  };
+
+  const handleDelete = async (orgId: string) => {
+    // Stop propagation to prevent the row's onClick from firing.
+    // e.stopPropagation(); 
+    if (window.confirm('Are you sure you want to delete this organization? This will detach all users and delete associated data.')) {
+      try {
+        await apiClient.delete(`/admin/organizations/${orgId}`);
+        toast.success('Organization deleted successfully');
+        fetchOrgs();
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to delete organization');
+      }
+    }
+  };
+
   return (
-    <>
-      <div className="page-header d-print-none text-white">
-        <div className="container-xl">
-          <div className="row g-2 align-items-center">
-            <div className="col">
-              <h2 className="page-title">Platform Organizations</h2>
-              <div className="text-muted mt-1">Manage all companies and accounts</div>
+    <div className="mock-page">
+      <div className="mock-page__main">
+        <section className="mock-feed-card">
+          <div className="mock-feed-card__header">
+            <div>
+              <h2>Organization Overview</h2>
+              <p>Audit tenant health, plan alignment, and seat-to-agent density across the full platform.</p>
             </div>
-            <div className="col-auto ms-auto d-print-none">
-              <div className="btn-list">
-                <button onClick={fetchOrgs} className="btn btn-ghost-light">
-                  <RefreshCcw size={18} className="me-2" />
-                  Refresh
-                </button>
-              </div>
+            <div className="mock-toolbar">
+              <button type="button" onClick={fetchOrgs} className="mock-toolbar-button">
+                <RefreshCcw size={15} />
+                Refresh
+              </button>
+              <button type="button" className="mock-action-solid" onClick={() => openModal()}>
+                Create Organization
+              </button>
             </div>
           </div>
-        </div>
-      </div>
-      <div className="page-body">
-        <div className="container-xl">
-          <div className="card shadow-sm border-0">
-            <div className="table-responsive">
-              <table className="table table-vcenter table-mobile-md card-table">
+          {loading ? (
+            <div className="mock-empty-state">
+              <strong>Loading organizations</strong>
+              <p>Fetching tenant plan and usage context.</p>
+            </div>
+          ) : orgs.length === 0 ? (
+            <div className="mock-empty-state">
+              <strong>No organizations found</strong>
+              <p>When companies are created, they will surface here with plan and usage context.</p>
+            </div>
+          ) : (
+            <div className="mock-table-wrap">
+              <table className="mock-table">
                 <thead>
                   <tr>
                     <th>Organization</th>
                     <th>Plan</th>
                     <th>Status</th>
-                    <th>Usage (Users / Agents)</th>
-                    <th className="w-1"></th>
+                    <th>Usage</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr><td colSpan={5} className="text-center py-4">Loading...</td></tr>
-                  ) : orgs.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-4 text-muted">No organizations found.</td></tr>
-                  ) : (
-                    orgs.map(org => (
-                      <tr key={org.id}>
-                        <td data-label="Organization">
-                          <div className="d-flex py-1 align-items-center">
-                            <span className="avatar avatar-sm me-2 bg-blue-lt">
-                              <Building2 size={14} />
-                            </span>
-                            <div className="flex-fill">
-                              <div className="font-weight-medium">{org.name}</div>
-                              <div className="text-muted small">ID: {org.id.slice(0, 8)}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td data-label="Plan">
-                          {org.plan_name || <span className="text-muted italic">No plan</span>}
-                        </td>
-                        <td data-label="Status">
-                          <span className={`badge ${org.subscription_status === 'active' ? 'bg-success-lt' : 'bg-warning-lt'}`}>
-                            {org.subscription_status}
-                          </span>
-                        </td>
-                        <td data-label="Usage">
-                          <div className="d-flex gap-2">
-                            <span className="text-muted d-flex align-items-center gap-1">
-                              <User size={12} /> {org.user_count}
-                            </span>
-                            <span className="text-muted d-flex align-items-center gap-1">
-                              / {org.agent_count} Agents
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="btn-list flex-nowrap">
-                            <button className="btn btn-ghost-primary btn-sm">Manage</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  {orgs.map((org) => (
+                    <tr key={org.id} className="mock-table-row--clickable" onClick={() => openModal(org)}>
+                      <td>
+                        <strong>{org.name}</strong>
+                        <p>{org.slug}</p>
+                      </td>
+                      <td>
+                        <strong>{org.plan_name || 'No plan assigned'}</strong>
+                        <p>Created {new Date(org.created_at).toLocaleDateString()}</p>
+                      </td>
+                      <td>
+                        <span className={org.subscription_status === 'active' ? 'mock-status mock-status--success' : 'mock-status mock-status--pending'}>
+                          {org.subscription_status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="mock-list-row__chips">
+                          <span className="mock-chip">{org.user_count} users</span>
+                          <span className="mock-chip">{org.agent_count} agents</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="mock-list-row__actions">
+                            <button type="button" className="mock-toolbar-button" onClick={(e) => { e.stopPropagation(); openModal(org); }}>Edit</button>
+                            <button type="button" className="mock-toolbar-button mock-toolbar-button--danger" onClick={(e) => { e.stopPropagation(); handleDelete(org.id); }}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
+          )}
+        </section>
+        {isModalOpen && (
+          <OrgForm
+            org={selectedOrg}
+            onSave={handleSave}
+            onClose={closeModal}
+          />
+        )}
       </div>
-    </>
+    </div>
+  );
+}
+
+// ─── Sub-component for the Org Form ────────────────────────────────────────────
+
+interface OrgFormProps {
+  org: Org | null;
+  onSave: (orgData: Partial<Org>) => void;
+  onClose: () => void;
+}
+
+function OrgForm({ org, onSave, onClose }: OrgFormProps) {
+  const [formData, setFormData] = useState({
+    name: org?.name || '',
+    slug: org?.slug || '',
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="mock-modal-overlay">
+      <div className="mock-modal">
+        <div className="mock-modal__header">
+          <h2>{org ? 'Edit Organization' : 'Create Organization'}</h2>
+          <p>Create a new tenant, specifying its name and unique URL slug.</p>
+        </div>
+        <form onSubmit={handleSubmit} className="mock-modal__body">
+          <div className="mock-form-group">
+            <label htmlFor="name">Organization Name</label>
+            <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required />
+          </div>
+          <div className="mock-form-group">
+            <label htmlFor="slug">Slug</label>
+            <input type="text" id="slug" name="slug" value={formData.slug} onChange={handleChange} required />
+          </div>
+          <div className="mock-modal__footer">
+            <button type="button" className="mock-toolbar-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="mock-action-solid">Save Organization</button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

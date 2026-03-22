@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { RefreshCcw, CheckCircle2, Clock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { RefreshCcw } from 'lucide-react';
 import { apiClient } from '../api/client';
 import toast from 'react-hot-toast';
 
@@ -31,76 +31,84 @@ export default function PrintQueue() {
   }, []);
 
   return (
-    <>
-      <div className="page-header d-print-none text-white">
-        <div className="container-xl">
-          <div className="row g-2 align-items-center">
-            <div className="col">
-              <h2 className="page-title">Print Queue</h2>
-              <div className="text-muted mt-1">Monitor recent print activity</div>
-            </div>
-            <div className="col-auto ms-auto d-print-none">
-              <button onClick={fetchJobs} className="btn btn-ghost-light">
-                <RefreshCcw size={18} className="me-2" />
-                Refresh
+    <div className="mock-page">
+      <div className="mock-page__grid">
+        <div className="mock-page__main">
+          <section className="mock-feed-card">
+            <div className="mock-feed-card__header">
+              <div>
+                <h2>Recent Label Activity</h2>
+                <p>Track queued, completed, and failed jobs in the same dense layout used across the rest of the app.</p>
+              </div>
+              <button type="button" onClick={fetchJobs} className="mock-toolbar-button">
+                <RefreshCcw size={15} />
+                Refresh Queue
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-      <div className="page-body">
-        <div className="container-xl">
-          <div className="card shadow-sm border-0">
-            <div className="table-responsive">
-              <table className="table table-vcenter table-mobile-md card-table">
-                <thead>
-                  <tr>
-                    <th>Product / SKU</th>
-                    <th>Status</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan={3} className="text-center py-4">Loading...</td></tr>
-                  ) : jobs.length === 0 ? (
-                    <tr><td colSpan={3} className="text-center py-4 text-muted">No print jobs found.</td></tr>
-                  ) : (
-                    jobs.map(job => (
+
+            {loading ? (
+              <div className="mock-empty-state">
+                <strong>Loading queue activity</strong>
+                <p>Fetching the most recent print jobs.</p>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="mock-empty-state">
+                <strong>Queue is clear</strong>
+                <p>New print jobs will land here as soon as labels are rendered or dispatched.</p>
+              </div>
+            ) : (
+              <div className="mock-table-wrap">
+                <table className="mock-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobs.map((job) => (
                       <tr key={job.id}>
-                        <td data-label="Product">
-                          <div className="d-flex py-1 align-items-center">
-                            <div className="flex-fill">
-                              <div className="font-weight-medium">{job.product_name}</div>
-                              <div className="text-muted small">{job.sku}</div>
-                            </div>
-                          </div>
+                        <td>
+                          <strong>{job.product_name}</strong>
+                          <p>{job.sku}</p>
                         </td>
-                        <td data-label="Status">
-                          {job.status === 'completed' ? (
-                            <span className="badge bg-success-lt d-flex align-items-center gap-1 w-fit">
-                              <CheckCircle2 size={12} /> Completed
-                            </span>
-                          ) : job.status === 'pending' ? (
-                            <span className="badge bg-yellow-lt d-flex align-items-center gap-1 w-fit">
-                              <Clock size={12} /> Pending
-                            </span>
-                          ) : (
-                            <span className="badge bg-danger-lt">Failed</span>
-                          )}
+                        <td>
+                          <span className={job.status === 'completed' ? 'mock-status mock-status--success' : job.status === 'pending' ? 'mock-status mock-status--pending' : 'mock-status mock-status--neutral'}>
+                            {job.status}
+                          </span>
                         </td>
-                        <td data-label="Created At" className="text-muted">
-                          {new Date(job.created_at).toLocaleString()}
+                        <td>
+                          <strong>{new Date(job.created_at).toLocaleDateString()}</strong>
+                          <p>{new Date(job.created_at).toLocaleTimeString()}</p>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
+
+        <aside className="mock-page__rail">
+          <section className="mock-rail-card">
+            <div className="mock-rail-card__header">
+              <strong>Queue Snapshot</strong>
+            </div>
+            <div className="mock-stat-grid">
+              <div className="mock-stat-tile">
+                <strong>{jobs.filter((job) => job.status === 'pending').length}</strong>
+                <span>Pending</span>
+              </div>
+              <div className="mock-stat-tile">
+                <strong>{jobs.filter((job) => job.status === 'completed').length}</strong>
+                <span>Completed</span>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

@@ -14,13 +14,16 @@ import Signup from './pages/Signup';
 import SidebarLayout from './layouts/SidebarLayout';
 import OverlapLayout from './layouts/OverlapLayout';
 import Dashboard from './pages/Dashboard';
+import Orders from './pages/Orders';
 import PrintLabel from './pages/PrintLabel';
 import PrintQueue from './pages/PrintQueue';
-import Orders from './pages/Orders';
 import Products from './pages/Products';
 import Agents from './pages/Agents';
 import Team from './pages/Team';
 import LabelDesigner from './pages/LabelDesigner';
+import Billing from './pages/Billing';
+import Intelligence from './pages/Intelligence';
+import Support from './pages/Support';
 
 import AdminPlans from './pages/AdminPlans';
 import AdminOrgs from './pages/AdminOrgs';
@@ -60,6 +63,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="products" element={<Products />} />
             <Route path="agents" element={<Agents />} />
             <Route path="team" element={<Team />} />
+            <Route path="billing" element={<Billing />} />
+            <Route path="intelligence" element={<Intelligence />} />
+            <Route path="support" element={<Support />} />
             <Route path="designer" element={<LabelDesigner />} />
           </Route>
 
