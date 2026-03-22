@@ -133,6 +133,68 @@ async def customer_portal(request):
     return sanic_json({"url": session["url"]})
 
 
+@billing_bp.route("/customer-details", methods=["GET"])
+async def get_customer_details(request):
+    org_id = request.ctx.user.get("org_id")
+    if not org_id:
+        return sanic_json({"error": "No organisation"}, status=400)
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        org = await conn.fetchrow("SELECT stripe_customer_id FROM organizations WHERE id=$1", org_id)
+
+    if not org or not org["stripe_customer_id"]:
+        return sanic_json({"error": "No Stripe customer found for this organization"}, status=404)
+
+    s = _stripe()
+    customer_id = org["stripe_customer_id"]
+    customer_details = {}
+
+    try:
+        # Fetch payment methods
+        payment_methods = s.Customer.list_payment_methods(
+            customer_id,
+            type="card",
+        )
+        if payment_methods["data"]:
+            default_pm = payment_methods["data"][0]
+            customer_details["default_payment_method"] = {
+                "brand": default_pm["card"]["brand"],
+                "last4": default_pm["card"]["last4"],
+                "exp_month": default_pm["card"]["exp_month"],
+                "exp_year": default_pm["card"]["exp_year"],
+            }
+
+        # Fetch upcoming invoice
+        try:
+            upcoming_invoice = s.Invoice.upcoming(customer=customer_id)
+            customer_details["upcoming_invoice"] = {
+                "amount_due": upcoming_invoice["amount_due"],
+                "currency": upcoming_invoice["currency"],
+                "next_payment_attempt": upcoming_invoice["next_payment_attempt"],
+            }
+        except stripe.error.InvalidRequestError:
+            customer_details["upcoming_invoice"] = None # No upcoming invoice
+
+        # Fetch recent invoices
+        invoices = s.Invoice.list(customer=customer_id, limit=3)
+        customer_details["recent_invoices"] = []
+        for inv in invoices["data"]:
+            customer_details["recent_invoices"].append({
+                "id": inv["id"],
+                "amount_due": inv["amount_due"],
+                "currency": inv["currency"],
+                "status": inv["status"],
+                "invoice_pdf": inv["invoice_pdf"],
+                "created": inv["created"],
+            })
+
+    except Exception as e:
+        return sanic_json({"error": f"Error fetching Stripe customer details: {e}"}, status=500)
+
+    return sanic_json(customer_details)
+
+
 @billing_bp.route("/webhook", methods=["POST"])
 async def stripe_webhook(request):
     """Stripe sends events here. No auth required — verified by signature."""
