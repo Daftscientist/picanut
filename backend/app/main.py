@@ -23,6 +23,7 @@ from .routes.settings import settings_bp
 from .routes.agents import agents_bp
 from .routes.billing import billing_bp
 from .routes.admin import admin_bp
+from .routes.intelligence import intelligence_bp
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("canopy")
@@ -48,6 +49,7 @@ app.blueprint(settings_bp)
 app.blueprint(agents_bp)
 app.blueprint(billing_bp)
 app.blueprint(admin_bp)
+app.blueprint(intelligence_bp)
 
 
 @app.middleware("request")
