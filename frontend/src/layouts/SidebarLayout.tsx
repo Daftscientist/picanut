@@ -39,7 +39,7 @@ export default function SidebarLayout() {
         { label: 'Print Labels', path: '/app/print', icon: 'label' },
         { label: 'Queue', path: '/app/print-queue', icon: 'assignment' },
         { label: 'AI Insights', path: '/app/intelligence', icon: 'psychology' },
-        { label: 'Agents', path: '/app/agents', icon: 'print_connect' },
+        { label: 'Integrations', path: '/app/agents', icon: 'hub' },
       ];
 
   const footerNav: NavItem[] = isAdminArea
