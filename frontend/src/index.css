@@ -3404,6 +3404,16 @@ img {
   border-top: 1px solid #f1f5f9;
 }
 
+.mock-modal__footer--split {
+  justify-content: space-between;
+}
+
+.mock-modal__footer--split > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 /* Form Groups */
 .mock-form-group {
   display: flex;
@@ -3486,6 +3496,11 @@ img {
 .mock-status--danger {
   background: rgba(186, 26, 26, 0.15);
   color: #b91c1c;
+}
+
+.mock-status--neutral {
+  background: rgba(107, 114, 128, 0.15);
+  color: #4b5563;
 }
 
 /* Chips */
