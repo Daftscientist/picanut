@@ -40,126 +40,125 @@ const signals = [
 
 export default function Landing() {
   return (
-    <div className="marketing-shell">
-      <div className="marketing-atmosphere" />
+    <div className="boreal-app boreal-landing-page">
+      <div className="boreal-atmosphere" />
 
-      <header className="marketing-nav canopy-glass">
-        <Link to="/" className="brand-mark">
-          <span className="brand-mark__icon">
+      <header className="boreal-topbar boreal-topbar--transparent">
+        <Link to="/" className="boreal-brand">
+          <span className="boreal-brand__mark">
             <Printer size={18} />
           </span>
-          <span>
-            <strong>Canopy</strong>
-            <small>order fulfillment</small>
-          </span>
+          <strong>Canopy<small>order fulfillment</small></strong>
         </Link>
 
-        <nav className="marketing-nav__links">
-          <a href="#capabilities">Capabilities</a>
-          <Link to="/pricing">Pricing</Link>
-          <Link to="/login">Login</Link>
-          <Link to="/signup" className="canopy-button canopy-button--primary">
+        <nav className="boreal-topnav">
+          <a href="#capabilities" className="boreal-topnav__item">Capabilities</a>
+          <Link to="/pricing" className="boreal-topnav__item">Pricing</Link>
+          <Link to="/login" className="boreal-topnav__item">Login</Link>
+          <Link to="/signup" className="boreal-button boreal-button--primary">
             Start free trial
           </Link>
         </nav>
       </header>
 
-      <main className="marketing-main">
-        <section className="marketing-hero">
-          <div className="marketing-hero__copy">
-            <div className="canopy-chip">
+      <main className="boreal-content"> {/* Reusing boreal-content for main area */}
+        <section className="boreal-hero">
+          <div className="boreal-hero__copy">
+            <div className="boreal-ai-pill">
               <Sparkles size={14} />
               The digital arboretum for modern fulfillment teams
             </div>
 
-            <h1 className="marketing-hero__title">
+            <h1 className="boreal-hero__title">
               Fulfillment at the speed of instinct, with the calm of a well-designed system.
             </h1>
 
-            <p className="marketing-hero__body">
+            <p className="boreal-hero__body">
               Canopy unifies products, orders, print queues, and local label output into a single operational surface. It
               trades clutter for rhythm: fewer dividers, clearer layers, faster action.
             </p>
 
-            <div className="marketing-hero__actions">
-              <Link to="/signup" className="canopy-button canopy-button--primary canopy-button--large">
+            <div className="boreal-hero__actions">
+              <Link to="/signup" className="boreal-button boreal-button--primary boreal-button--large">
                 Start free trial
                 <ArrowRight size={16} />
               </Link>
-              <Link to="/pricing" className="canopy-button canopy-button--secondary canopy-button--large">
+              <Link to="/pricing" className="boreal-button boreal-button--secondary boreal-button--large">
                 View plans
               </Link>
             </div>
 
-            <div className="marketing-signals">
+            <div className="boreal-stats-grid"> {/* Adapting marketing-signals */}
               {signals.map((signal) => (
-                <div key={signal.label} className="marketing-signal canopy-panel canopy-panel--soft">
-                  <span>{signal.value}</span>
+                <div key={signal.label} className="boreal-card boreal-card--soft">
+                  <strong>{signal.value}</strong>
                   <small>{signal.label}</small>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="marketing-hero__visual">
-            <div className="marketing-orb marketing-orb--one" />
-            <div className="marketing-orb marketing-orb--two" />
+          <div className="boreal-hero__visual">
+            <div className="boreal-orb boreal-orb--one" />
+            <div className="boreal-orb boreal-orb--two" />
 
-            <div className="dashboard-preview canopy-panel">
-              <div className="dashboard-preview__top">
+            <div className="boreal-card boreal-dashboard-preview"> {/* Adapting dashboard-preview */}
+              <div className="boreal-card__header">
                 <div>
-                  <p className="canopy-label">Operations canopy</p>
+                  <p className="boreal-label">Operations canopy</p>
                   <h2>Clear decisions, fast print flow.</h2>
                 </div>
-                <div className="canopy-chip canopy-chip--quiet">
+                <div className="boreal-ai-pill">
                   <CheckCircle2 size={14} />
                   Auto-print online
                 </div>
               </div>
 
-              <div className="dashboard-preview__grid">
-                <article className="canopy-panel canopy-panel--soft">
-                  <p className="canopy-label">Today</p>
+              <div className="boreal-quick-grid" style={{ padding: '1rem' }}> {/* Adapting dashboard-preview__grid */}
+                <div className="boreal-card boreal-card--soft">
+                  <p className="boreal-label">Today</p>
                   <strong>248 labels sent</strong>
                   <span>Across store, returns, and warehouse batches.</span>
-                </article>
-                <article className="canopy-panel canopy-panel--soft">
-                  <p className="canopy-label">Queue</p>
+                </div>
+                <div className="boreal-card boreal-card--soft">
+                  <p className="boreal-label">Queue</p>
                   <strong>12 pending orders</strong>
                   <span>Ready for pick, print, and handoff.</span>
-                </article>
+                </div>
               </div>
 
-              <div className="dashboard-preview__feed canopy-panel canopy-panel--inset">
-                <div className="dashboard-preview__feed-head">
+              <div className="boreal-feed-card" style={{ marginTop: '1rem' }}> {/* Adapting dashboard-preview__feed */}
+                <div className="boreal-feed-card__header" style={{ padding: '1rem 1.5rem', borderBottom: 'none' }}>
                   <div>
-                    <p className="canopy-label">Live stream</p>
+                    <p className="boreal-label">Live stream</p>
                     <h3>Fulfillment feed</h3>
                   </div>
-                  <span className="canopy-chip canopy-chip--quiet">stable sync</span>
+                  <span className="boreal-ai-pill">stable sync</span>
                 </div>
 
-                {[
-                  ['CP-9821', '4x Standard Shelf Labels', 'auto-printed'],
-                  ['CP-9820', '12x Thermal Paper Rolls', 'pending'],
-                  ['CP-9819', '2x Eco Packaging Tape', 'fulfilled'],
-                ].map(([order, item, status]) => (
-                  <div key={order} className="dashboard-preview__row">
-                    <div>
-                      <strong>#{order}</strong>
-                      <span>{item}</span>
+                <div className="boreal-list">
+                  {[
+                    ['CP-9821', '4x Standard Shelf Labels', 'auto-printed'],
+                    ['CP-9820', '12x Thermal Paper Rolls', 'pending'],
+                    ['CP-9819', '2x Eco Packaging Tape', 'fulfilled'],
+                  ].map(([order, item, status]) => (
+                    <div key={order} className="boreal-list-item">
+                      <div>
+                        <strong>#{order}</strong>
+                        <span>{item}</span>
+                      </div>
+                      <em className="boreal-tag boreal-tag--neutral">{status}</em>
                     </div>
-                    <em>{status}</em>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="capabilities" className="marketing-section">
-          <div className="marketing-section__header">
-            <p className="canopy-label">Capabilities</p>
+        <section id="capabilities" className="boreal-section"> {/* Adapting marketing-section */}
+          <div className="boreal-section__header">
+            <p className="boreal-label">Capabilities</p>
             <h2>Operational software shaped like an instrument, not a spreadsheet.</h2>
             <p>
               Every surface is designed around tonal hierarchy, editorial spacing, and high-confidence actions for teams
@@ -167,13 +166,13 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="marketing-feature-grid">
+          <div className="boreal-feature-grid"> {/* Adapting marketing-feature-grid */}
             {featureCards.map((card) => (
-              <article key={card.title} className="canopy-panel marketing-feature">
-                <div className="marketing-feature__icon">
-                  <card.icon size={18} />
+              <article key={card.title} className="boreal-card boreal-feature-card">
+                <div className="boreal-feature-card__icon">
+                  <card.icon size={18} className="boreal-material" />
                 </div>
-                <p className="canopy-label">{card.eyebrow}</p>
+                <p className="boreal-label">{card.eyebrow}</p>
                 <h3>{card.title}</h3>
                 <p>{card.body}</p>
               </article>
@@ -181,9 +180,9 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="marketing-band">
-          <div className="marketing-band__copy">
-            <p className="canopy-label">Why teams switch</p>
+        <section className="boreal-section boreal-section--band"> {/* Adapting marketing-band */}
+          <div className="boreal-section__copy">
+            <p className="boreal-label">Why teams switch</p>
             <h2>More signal. Less visual friction.</h2>
             <p>
               The canopy system replaces hard dividers and generic admin chrome with layered surfaces, floating controls,
@@ -191,23 +190,23 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="marketing-band__stats">
-            <article className="canopy-panel canopy-panel--soft">
-              <BarChart3 size={18} />
+          <div className="boreal-stats-grid"> {/* Adapting marketing-band__stats */}
+            <article className="boreal-card boreal-card--soft">
+              <BarChart3 size={18} className="boreal-material" />
               <strong>Usage-aware dashboards</strong>
               <span>Quota, queue pressure, and agent status stay visible without overwhelming the eye.</span>
             </article>
-            <article className="canopy-panel canopy-panel--soft">
-              <Layers3 size={18} />
+            <article className="boreal-card boreal-card--soft">
+              <Layers3 size={18} className="boreal-material" />
               <strong>Tonal layering</strong>
               <span>Cards, tools, and contextual regions are separated by surfaces and depth, not boxed borders.</span>
             </article>
           </div>
         </section>
 
-        <section className="marketing-cta canopy-panel canopy-panel--hero">
+        <section className="boreal-section boreal-section--cta boreal-card boreal-card--hero"> {/* Adapting marketing-cta */}
           <div>
-            <p className="canopy-label canopy-label--inverse">Start here</p>
+            <p className="boreal-label">Start here</p>
             <h2>Grow your label operation inside a calmer, sharper interface.</h2>
             <p>
               Create a workspace for your team, connect your printer flow, and move from incoming order to printed label
@@ -215,11 +214,11 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="marketing-cta__actions">
-            <Link to="/signup" className="canopy-button canopy-button--light canopy-button--large">
+          <div className="boreal-actions"> {/* Adapting marketing-cta__actions */}
+            <Link to="/signup" className="boreal-button boreal-button--primary boreal-button--large">
               Create account
             </Link>
-            <Link to="/login" className="canopy-button canopy-button--ghost-light canopy-button--large">
+            <Link to="/login" className="boreal-button boreal-button--secondary boreal-button--large">
               Sign in
             </Link>
           </div>
