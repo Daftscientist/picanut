@@ -58,12 +58,12 @@ export default function PrintLabel() {
         quantity,
       });
 
-      if (!renderResult.jobId) {
-        throw new Error('Render job ID not received.');
+      if (!renderResult || !renderResult.blob || !renderResult.jobId) {
+        throw new Error('Failed to render label or missing render data.');
       }
 
       // Step 2: Dispatch the raster bytes to the print agent
-      // The apiClient is set up to handle Blob as body and will add X-Job-Id header
+      // apiClient.post correctly handles Blob as body and extra headers
       await apiClient.post('/api/print/dispatch', renderResult.blob, { 'X-Job-Id': renderResult.jobId });
       
       // Step 3: Confirm the print job
@@ -71,6 +71,7 @@ export default function PrintLabel() {
       
       toast.success('Label sent to print queue');
     } catch (err: any) {
+      console.error('Print error:', err); // Log error for debugging
       toast.error(err.message || 'Print failed');
     } finally {
       setPrinting(false);

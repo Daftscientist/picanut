@@ -56,7 +56,8 @@ export default function AdminOrgs() {
       }
       fetchOrgs();
       closeModal();
-    } catch (err: any)      toast.error(err.message || 'Failed to save organization');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save organization');
     }
   };
 

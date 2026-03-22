@@ -7,7 +7,8 @@ COPY frontend/package.json ./
 RUN npm install
 
 COPY frontend/ ./
-RUN npm run build
+RUN echo "Attempting npm run build..."
+RUN npm run build || exit 1
 
 # Stage 2: Python backend
 FROM python:3.11-slim
