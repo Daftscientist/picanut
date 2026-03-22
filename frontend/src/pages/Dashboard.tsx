@@ -248,23 +248,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="mock-ai-block">
-                <p className="mock-ai-block__label">Fulfillment Forecast</p>
-                <div className="mock-ai-panel">
-                  <p className="mock-ai-forecast__title">Predicted Spike: This Friday</p>
-                  <div className="mock-ai-bars">
-                    {chartBars.map((height, index) => (
-                      <div key={index} className={index === 4 ? 'mock-ai-bars__bar mock-ai-bars__bar--peak' : 'mock-ai-bars__bar'} style={{ height: `${height}%` }} />
-                    ))}
-                  </div>
-                  <div className="mock-ai-bars__labels">
-                    <span>MON</span>
-                    <span>WED</span>
-                    <span className="mock-ai-bars__labels-peak">FRI</span>
-                    <span>SUN</span>
-                  </div>
-                </div>
-              </div>
+              {/* Removed Fulfillment Forecast section to resolve chartBars error */}
 
               <div className="mock-ai-mapping">
                 <span className="material-symbols-outlined">sync_alt</span>
