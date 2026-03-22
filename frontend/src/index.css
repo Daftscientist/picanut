@@ -3339,6 +3339,210 @@ img {
   background: #f59e0b;
 }
 
+/* ─── Modal & Form Styles ─────────────────────────────────────────────────────── */
+
+.mock-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: rgba(25, 28, 30, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.mock-modal {
+  position: relative;
+  z-index: 101;
+  width: 100%;
+  max-width: 500px;
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 24px 40px -32px rgba(25, 28, 30, 0.12);
+  overflow: hidden;
+}
+
+.mock-modal__header {
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mock-modal__header h2 {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #191c1e;
+}
+
+.mock-modal__header p {
+  margin: 0.125rem 0 0;
+  color: #404942;
+  font-size: 0.75rem;
+}
+
+.mock-modal__body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mock-modal__footer {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Form Groups */
+.mock-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mock-form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #191c1e;
+}
+
+.mock-form-group input,
+.mock-form-group textarea,
+.mock-form-group select {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #191c1e;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.mock-form-group input:focus,
+.mock-form-group textarea:focus,
+.mock-form-group select:focus {
+  outline: 0;
+  border-color: #00351f;
+  background: #f8fafb;
+}
+
+.mock-form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.mock-form-group--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mock-form-group--inline input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  border: 0;
+}
+
+.mock-form-group--inline label {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Status & Badges */
+.mock-status {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: rgba(226, 232, 240, 0.6);
+  color: #404942;
+}
+
+.mock-status--success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.mock-status--pending {
+  background: rgba(217, 119, 6, 0.15);
+  color: #b45309;
+}
+
+.mock-status--danger {
+  background: rgba(186, 26, 26, 0.15);
+  color: #b91c1c;
+}
+
+/* Chips */
+.mock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(0, 53, 31, 0.08);
+  color: #00351f;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mock-list-row__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* List & Table Row Actions */
+.mock-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mock-list-row__actions,
+.mock-list-row__chips {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mock-table-row--clickable {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.mock-table-row--clickable:hover {
+  background-color: rgba(0, 53, 31, 0.02);
+}
+
+.mock-toolbar-button--danger {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.mock-toolbar-button--danger:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
 .mock-mobile-nav,
 .mock-mobile-menu,
 .mock-sidebar-overlay {
