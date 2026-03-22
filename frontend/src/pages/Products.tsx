@@ -58,11 +58,6 @@ export default function Products() {
     setSelectedProduct(null);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedProduct(null);
-  };
-
   const handleSave = async (productData: any) => {
     try {
       if (selectedProduct) {
