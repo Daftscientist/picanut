@@ -51,13 +51,24 @@ export default function PrintLabel() {
 
     setPrinting(true);
     try {
-      const result = await apiClient.post<{ blob: Blob; jobId: string }>('/print/render', {
+      // Step 1: Render the label to get raster bytes
+      const renderResult = await apiClient.post<{ blob: Blob; jobId: string }>('/print/render', {
         variant_id: selectedVariantId,
         label_type: labelType,
         quantity,
       });
 
-      await apiClient.post(`/print/${result.jobId}/confirm`);
+      if (!renderResult.jobId) {
+        throw new Error('Render job ID not received.');
+      }
+
+      // Step 2: Dispatch the raster bytes to the print agent
+      // The apiClient is set up to handle Blob as body and will add X-Job-Id header
+      await apiClient.post('/print/dispatch', renderResult.blob, { 'X-Job-Id': renderResult.jobId });
+      
+      // Step 3: Confirm the print job
+      await apiClient.post(`/print/${renderResult.jobId}/confirm`);
+      
       toast.success('Label sent to print queue');
     } catch (err: any) {
       toast.error(err.message || 'Print failed');
