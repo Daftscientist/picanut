@@ -40,48 +40,6 @@ export default function Signup() {
   };
 
   return (
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Building2, LockKeyhole, Mail, Printer, UserRound } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { apiClient } from '../api/client';
-import toast from 'react-hot-toast';
-
-export default function Signup() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
-    setLoading(true);
-
-    try {
-      const data = await apiClient.post<{ token: string }>('/auth/signup', {
-        username,
-        email,
-        password,
-        company_name: companyName,
-      });
-      await login(data.token);
-      toast.success('Account created successfully');
-      navigate('/app', { replace: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Signup failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
     <div className="boreal-app">
       <div className="boreal-sidebar"> {/* Adapting the brand panel to a sidebar look */}
         <div className="boreal-sidebar__inner">
@@ -167,7 +125,5 @@ export default function Signup() {
         </div>
       </div>
     </div>
-  );
-}
   );
 }
