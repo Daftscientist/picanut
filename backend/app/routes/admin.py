@@ -1,6 +1,8 @@
 from sanic import Blueprint
 from sanic.response import json as sanic_json
 from ..db import get_pool
+from datetime import datetime
+from decimal import Decimal
 
 admin_bp = Blueprint("admin", url_prefix="/api/admin")
 
@@ -212,6 +214,118 @@ async def delete_organization(request, org_id):
     pool = get_pool()
     async with pool.acquire() as conn:
         res = await conn.execute("DELETE FROM organizations WHERE id=$1", org_id)
+    if res == "DELETE 0":
+        return sanic_json({"error": "Not found"}, status=404)
+    return sanic_json({"ok": True})
+
+
+# ── Vouchers ───────────────────────────────────────────────────────────────────
+
+@admin_bp.route("/vouchers", methods=["GET"])
+async def list_vouchers(request):
+    err = _require_platform_admin(request)
+    if err:
+        return err
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id, code, description, discount_type, value, plan_id, expires_at, max_uses, used_count, is_active, created_at FROM vouchers ORDER BY created_at DESC")
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["created_at"] = d["created_at"].isoformat()
+        if d["expires_at"]:
+            d["expires_at"] = d["expires_at"].isoformat()
+        d["value"] = str(d["value"]) # Convert Decimal to string for JSON
+        result.append(d)
+    return sanic_json(result)
+
+
+@admin_bp.route("/vouchers", methods=["POST"])
+async def create_voucher(request):
+    err = _require_platform_admin(request)
+    if err:
+        return err
+    data = request.json or {}
+    code = data.get("code")
+    description = data.get("description")
+    discount_type = data.get("discount_type", "percentage")
+    value = Decimal(str(data.get("value", 0.00)))
+    plan_id = data.get("plan_id")
+    expires_at_str = data.get("expires_at")
+    expires_at = datetime.fromisoformat(expires_at_str) if expires_at_str else None
+    max_uses = data.get("max_uses")
+    is_active = data.get("is_active", True)
+
+    if not code:
+        return sanic_json({"error": "Voucher code is required"}, status=400)
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO vouchers (code, description, discount_type, value, plan_id, expires_at, max_uses, is_active)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *""",
+                code, description, discount_type, value, plan_id, expires_at, max_uses, is_active
+            )
+            result = dict(row)
+            result["created_at"] = result["created_at"].isoformat()
+            if result["expires_at"]:
+                result["expires_at"] = result["expires_at"].isoformat()
+            result["value"] = str(result["value"])
+            return sanic_json(result, status=201)
+        except Exception as e:
+            return sanic_json({"error": f"Failed to create voucher: {e}"}, status=500)
+
+
+@admin_bp.route("/vouchers/<voucher_id>", methods=["PUT"])
+async def update_voucher(request, voucher_id):
+    err = _require_platform_admin(request)
+    if err:
+        return err
+    data = request.json or {}
+    pool = get_pool()
+
+    expires_at_str = data.get("expires_at")
+    expires_at = datetime.fromisoformat(expires_at_str) if expires_at_str else None
+
+    # Handle value as Decimal
+    value = Decimal(str(data["value"])) if "value" in data else None
+    
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """UPDATE vouchers SET
+               code=COALESCE(NULLIF($1,''), code),
+               description=COALESCE(NULLIF($2,''), description),
+               discount_type=COALESCE(NULLIF($3,''), discount_type),
+               value=COALESCE($4, value),
+               plan_id=COALESCE($5::uuid, plan_id),
+               expires_at=COALESCE($6, expires_at),
+               max_uses=COALESCE($7, max_uses),
+               used_count=COALESCE($8, used_count),
+               is_active=COALESCE($9, is_active)
+               WHERE id=$10 RETURNING *""",
+            data.get("code"), data.get("description"), data.get("discount_type"), value,
+            data.get("plan_id"), expires_at, data.get("max_uses"), data.get("used_count"),
+            data.get("is_active"), voucher_id
+        )
+    if not row:
+        return sanic_json({"error": "Not found"}, status=404)
+    result = dict(row)
+    result["created_at"] = result["created_at"].isoformat()
+    if result["expires_at"]:
+        result["expires_at"] = result["expires_at"].isoformat()
+    result["value"] = str(result["value"])
+    return sanic_json(result)
+
+
+@admin_bp.route("/vouchers/<voucher_id>", methods=["DELETE"])
+async def delete_voucher(request, voucher_id):
+    err = _require_platform_admin(request)
+    if err:
+        return err
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        res = await conn.execute("DELETE FROM vouchers WHERE id=$1", voucher_id)
     if res == "DELETE 0":
         return sanic_json({"error": "Not found"}, status=404)
     return sanic_json({"ok": True})
