@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import toast from 'react-hot-toast'; // Import toast for messages
+import { Printer } from 'lucide-react'; // Import Printer icon
 
 interface BillingStatus {
   usage: {
@@ -7,57 +9,108 @@ interface BillingStatus {
   };
 }
 
-interface Order {
+interface OrderItem {
+  name?: string;
+  sku?: string;
+  quantity?: number;
+}
+
+interface OrderJob {
+  id: string;
+  quantity: number;
+  status: string;
+  sku?: string | null;
+  product_name?: string | null;
+}
+
+interface PendingOrder {
   id: string;
   order_number: string;
   customer_name: string;
-  status: string;
-  items: Array<{ name?: string }>;
+  status: string; // The backend should return the actual status
+  imported_at: string;
+  platform?: string; // e.g., 'WooCommerce', 'Shopify'
+  unmatched: OrderItem[];
+  items: OrderItem[];
+  jobs: OrderJob[];
 }
 
-const MOCK_FEED: Order[] = [
-  {
-    id: 'mock-1',
-    order_number: 'CP-9821',
-    customer_name: 'Shopify',
-    status: 'auto-printed',
-    items: [{ name: '4x Standard Shelf Labels' }, { name: '1x Pro Dispenser' }],
-  },
-  {
-    id: 'mock-2',
-    order_number: 'CP-9820',
-    customer_name: 'WooCommerce',
-    status: 'pending',
-    items: [{ name: '12x Thermal Paper Rolls (80mm)' }],
-  },
-  {
-    id: 'mock-3',
-    order_number: 'CP-9819',
-    customer_name: 'Shopify',
-    status: 'fulfilled',
-    items: [{ name: '2x Eco-Friendly Packaging Tape' }],
-  },
-];
+// Helper functions (copied from Orders.tsx)
+function formatPlatform(order: PendingOrder) {
+  return order.platform || 'WooCommerce'; // Default to WooCommerce if not specified
+}
+
+function formatImportedAt(value: string) {
+  const date = new Date(value);
+  return {
+    date: date.toLocaleDateString(),
+    time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
+function summarizeItems(items: OrderItem[]) {
+  if (items.length === 0) return 'No line items available';
+  return items
+    .map((item) => `${item.quantity || 1}x ${item.name || item.sku || 'Unmapped item'}`)
+    .join(', ');
+}
+
 
 export default function Dashboard() {
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<PendingOrder[]>([]); // Use PendingOrder interface
+  const [printingOrderId, setPrintingOrderId] = useState<string | null>(null); // For print loading state
+
+  const fetchDashboardData = async () => {
+    // Fetch billing status and pending orders in parallel
+    const [billingData, orderData] = await Promise.all([
+      apiClient.get<BillingStatus>('/billing/status').catch(() => null),
+      apiClient.get<PendingOrder[]>('/print/orders/pending').catch(() => []), // Fetch real orders
+    ]);
+    setBilling(billingData);
+    setOrders(orderData || []); // Ensure orders is an array
+  };
 
   useEffect(() => {
-    Promise.all([
-      apiClient.get<BillingStatus>('/billing/status').catch(() => null),
-      apiClient.get<Order[]>('/print/orders/pending').catch(() => []),
-    ]).then(([billingData, orderData]) => {
-      setBilling(billingData);
-      setOrders(orderData);
-    });
+    fetchDashboardData();
   }, []);
 
   const quotaUsed = billing?.usage.quota.used ?? 0;
   const quotaLimit = billing?.usage.quota.limit ?? 0;
   const quotaPercent = quotaLimit > 0 ? Math.min(100, Math.round((quotaUsed / quotaLimit) * 100)) : 85;
-  const feed = (orders.length > 0 ? orders : MOCK_FEED).slice(0, 3);
-  const chartBars = [30, 50, 40, 60, 90, 35, 25];
+
+  const handlePrintAll = async (order: PendingOrder) => {
+    setPrintingOrderId(order.id);
+    try {
+      // Step 1: Call the backend endpoint to get raster bytes for all jobs in the order
+      // We expect the backend to return X-Job-Ids in headers for multiple jobs
+      const result = await apiClient.post<{ blob: Blob; jobId: string }>(`/print/orders/${order.id}/print-all`);
+      
+      const jobIds = (result.jobId || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      if (jobIds.length === 0) {
+        throw new Error('No printable jobs were returned for this order');
+      }
+
+      // Step 2: Dispatch the combined raster bytes to the print agent
+      await apiClient.post('/api/print/dispatch', result.blob, { 'X-Job-Ids': result.jobId });
+      
+      // Step 3: Confirm all print jobs associated with the order
+      // The backend /print/orders/{order_id}/print-all already marks jobs as printed
+      // so this loop is not necessary if backend handles it
+      // if not, then: await Promise.all(jobIds.map((jobId) => apiClient.post(`/print/${jobId}/confirm`)));
+
+      toast.success(`Printed ${order.order_number}`);
+      await fetchDashboardData(); // Refresh orders after printing
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to print order');
+    } finally {
+      setPrintingOrderId(null);
+    }
+  };
 
   return (
     <div className="mock-dashboard">
@@ -127,42 +180,44 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {feed.map((order, index) => {
-                    const platform = index === 1 ? 'WooCommerce' : 'Shopify';
-                    const time = index === 0 ? '2 mins ago' : index === 1 ? '15 mins ago' : '1 hour ago';
-                    const items = order.items.map((item) => item.name).filter(Boolean).join(', ');
+                  {orders.slice(0, 3).map((order) => { // Use real orders, limit to 3
+                    const importedAt = formatImportedAt(order.imported_at);
+                    const requiresAttention = order.unmatched.length > 0 || order.jobs.length === 0;
+                    const actionDisabled = requiresAttention || printingOrderId === order.id;
+
                     return (
                       <tr key={order.id}>
                         <td>
                           <strong>#{order.order_number}</strong>
-                          <p>{time}</p>
+                          <p>{formatPlatform(order)} · {importedAt.date} {importedAt.time}</p>
                         </td>
                         <td>
                           <div className="mock-platform">
-                            <span className={`material-symbols-outlined ${platform === 'WooCommerce' ? 'mock-platform__icon mock-platform__icon--woo' : 'mock-platform__icon mock-platform__icon--shopify'}`}>
-                              {platform === 'WooCommerce' ? 'storefront' : 'shopping_bag'}
+                            <span className={`material-symbols-outlined ${order.platform === 'WooCommerce' ? 'mock-platform__icon mock-platform__icon--woo' : 'mock-platform__icon mock-platform__icon--shopify'}`}>
+                              {order.platform === 'WooCommerce' ? 'storefront' : 'shopping_bag'}
                             </span>
-                            {platform}
+                            {order.platform || 'Unknown'}
                           </div>
                         </td>
-                        <td className="mock-table__items">{items}</td>
+                        <td className="mock-table__items">{summarizeItems(order.items)}</td>
                         <td>
                           <span
                             className={
-                              index === 0
-                                ? 'mock-status mock-status--success'
-                                : index === 1
-                                  ? 'mock-status mock-status--pending'
+                              requiresAttention
+                                ? 'mock-status mock-status--pending'
+                                : order.status === 'printed'
+                                  ? 'mock-status mock-status--success'
                                   : 'mock-status mock-status--neutral'
                             }
                           >
-                            {index === 0 ? 'Auto-printed' : index === 1 ? 'Pending' : 'Fulfilled'}
+                            {requiresAttention ? 'Attention' : order.status === 'printed' ? 'Printed' : 'Pending'}
                           </span>
                         </td>
                         <td className="mock-table__align-right">
-                          {index === 0 ? <button type="button" className="mock-action-link">Print Label</button> : null}
-                          {index === 1 ? <button type="button" className="mock-action-solid">Print Label</button> : null}
-                          {index === 2 ? <button type="button" className="mock-action-muted">Reprint</button> : null}
+                            <button type="button" className={requiresAttention ? 'mock-action-link' : 'mock-action-solid'} onClick={() => handlePrintAll(order)} disabled={actionDisabled}>
+                              <Printer size={14} />
+                              {printingOrderId === order.id ? 'Printing…' : requiresAttention ? 'Resolve Items' : 'Print Labels'}
+                            </button>
                         </td>
                       </tr>
                     );
