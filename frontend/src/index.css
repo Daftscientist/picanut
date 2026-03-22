@@ -3470,6 +3470,44 @@ img {
   font-weight: 500;
 }
 
+/* Checkbox grid for multi-select forms */
+.mock-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.mock-checkbox-item {
+  display: contents;
+}
+
+.mock-checkbox-item input[type="checkbox"] {
+  display: none;
+}
+
+.mock-checkbox-item label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  background: #f3f6f7;
+  color: #191c1e;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  user-select: none;
+}
+
+.mock-checkbox-item input[type="checkbox"]:checked + label {
+  background: #e8f5e9;
+  border-color: #059669;
+  color: #059669;
+}
+
 /* Status & Badges */
 .mock-status {
   display: inline-block;
